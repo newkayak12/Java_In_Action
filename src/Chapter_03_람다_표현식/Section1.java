@@ -1,10 +1,8 @@
 package Chapter_03_람다_표현식;
 
 import java.awt.event.ActionEvent;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EventListener;
-import java.util.List;
+import java.util.*;
+import java.util.function.Supplier;
 
 public class Section1 {
     /**
@@ -168,7 +166,129 @@ public class Section1 {
         }
     /**
      *  이외에도 Double~, Long~ 과 같이 형식명이 붙는 인터페이스 들이 있다. 또한 이러한 함수들을 우리가 직접 만들어서 사용할 수도 있다.
+     *
+     *
+     *          > 지역 변수 사용
+     *  지금까지 모든 람다 표현식은 인수를 자신의 바디 안에서만 사용했다. 하지만 람다 표현식에서 익명 함수가 하는 것처럼 자유 변수(free variable)
+     *  (파라미터로 넘겨진 변수가 아닌, 외부에서 정의된 변수)를 활용할 수 있다. 이와 같은 동작을 람다 캡쳐링(capturing lambda)라고 부른다.
      */
+        {
+            String portNumber = "1247";
+            Runnable r = () -> System.out.println(portNumber);
 
+        }
+    /**
+     *  위와 같은 예시를 들 수 있다. 하지만 이러한 자유 변수에도 제약이 있다. 람다는 인스턴스 변수와 정적 변수를 자유롭게 캡처(자유롭게 바디에 참조할 수 있
+     *  도록)할 수 있지만 지역 변수가 명시적/ 묵시적으로 final로 선언되어 있거나, 동작해야한다. 즉, 람다 표현식은 한 번만 할당할 수 있는 지역 변수를 캡쳐
+     *  할 수 있다.
+     *
+     *  왜 이러한 제약이 있는가 하면 내부적으로 인스턴스 변수, 지역 변수는 저장되는 태생부터 다르다. 인스턴스 변수는 힙, 지역 변수는 스택에 저장된다. 변수를
+     *  할당한 쓰레드가 사라져서 변수 할당이 해제됐는데 람다를 실행하는 쓰레드에서 접근하려 한다면 문제가 생길 수 있다. 따라서 자바 구현에서는 원래 변수에 접근
+     *  을 허용하는 것이 아닌 자유 지역 변수의 복사본을 제공한다. 따라서 복사본의 값이 바뀌지 않아야 하므로 한 번만 값을 할당해야 한다는 제약이 생긴다.
+     *
+     *
+     *      {
+     *          ?? 클로저
+     *          람다가 클로저의 정의에 부합하는가? 원칙적으로 클로저란 함수의 비지역 변수를 자유롭게 참조할 수 있는 함수 인스턴스를 가리킨다. 클로저는 클로저
+     *          외부에 정의된 변수의 값에 접근하고, 값을 바꿀 수 있다. 자바 8의 람다/ 익명 클래스는 클로저와 비슷한 동작을 수행한다. 람다와 익명 클래스
+     *          모두 메소드에 인수로 전달될 수 있으며, 자신 외부 영역에 접근할 수 있다. 다만 람다/ 익명 클래스는 정의된 메소드의 지역 변수의 값은
+     *          바꿀 수 없다. 람다가 정의된 메소드의 지역 변수 값은 final처럼 취급되거나 final이어야만 하기 때문이다. 람다는 따라서 변수가 아닌 값에
+     *          국한되어 동작을 수행한다는 것이 명확해진다.
+     *      }
+     *
+     *
+     *
+     *              > 메소드 참조
+     *  메소드 참조를 이용하면 기존의 메소드 정의를 재활용하여 람다처럼 전달할 수 있다. 여기서 왜 메소드 참조를 여러 번 강조하냐면 람다가 '이 메소드를 직접
+     *  호출하라'라고 명령하면 메소드를 어떻게 호출해야 하는지 설명을 참조하기보다는 메소드명을 직접 참조하는 것이 편리하기 때문이다. 또한, 가독성을 높일 수
+     *  있기 때문이다.
+     *
+     *              > 메소드 참조를 만드는 방법
+     *  메소드 참조는 세 가지 유형으로 구분할 수 있다.
+     *
+     *      1. 정적 메소드 참조
+     *          > Integer::parseInt
+     *      2. 다양한 형식의 인스턴스 메소드 참조
+     *          > String::length
+     *      3. 기존 객체의 인스턴스 메소드 참조
+     *          > Transaction 객체를 할당 받은 a가 있고 Transaction에 getValue 메소드가 있는 경우,
+     *          a::getValue와 같이 사용 가능
+     *
+     */
+        {
+            Predicate<String> stringPredicate = (String value)->value.isEmpty();
+
+        }
+            public boolean isValid(String value, Predicate<String> predicate){
+                return predicate.test(value);
+            }
+        {
+            isValid("value", String::isBlank);
+        }
+    /**
+     *    정리하면 아래와 같다.
+     *
+     *    1) Lambda : (args) -> ClassName.staticMethod(args)      | methodReference : (ClassName::staticMethod)
+     *    2) Lambda : (arg0, rest) -> arg0.instanceMethod(rest)   | methodReference : (Class:instanceMethod)
+     *    3) Lambda : (args) -> exr.instanceMethod(args)          | methodReference : (expr::instanceMethod)
+     */
+        {
+            List<String> strs = Arrays.asList("a","d","B","c","z");
+            strs.sort(String::compareToIgnoreCase);
+        }
+    /**
+     *                  > 생성자 참조
+     *  ClassName::new처럼 클래스명과 new 키워드를 이용해서 기존 생성자의 참조를 만들 수 있다. 이는 정적 메소드의 참조를 만드는 방법과 비슷하다.
+     *
+     */
+        class AppleTest {
+            public AppleTest(){}
+        }
+        class AppleTest2 {
+            Integer number;
+            public AppleTest2(Integer number){
+                this.number = number;
+            }
+        }
+        {
+            Supplier<AppleTest> c1 = AppleTest::new;
+            AppleTest a1 = c1.get();
+            Function<Integer, AppleTest2> c2 = AppleTest2::new;
+            AppleTest2 a2 = c2.apply(142);
+        }
+    /**
+     *                > 람다 표현식을 조합할 수 있는 유용한 메소드
+     *
+     *  1. Comparator : 정적 메소드 Comparator.comparing을 이요해서 비교에 사용할 키를 추출하는 Function 기반의 Comparator를 반환할 수 있다.
+     *
+     */
+        {
+
+            class TestClass {
+                String str;
+                Integer num;
+                public TestClass(String str, Integer num){
+                    this.str = str;
+                    this.num = num;
+                }
+
+                public String getStr() {
+                    return str;
+                }
+
+                public Integer getNum() {
+                    return num;
+                }
+            }
+            List<TestClass> inventory = Arrays.asList(new TestClass("A",2),
+                    new TestClass("Z",2), new TestClass("A",1), new TestClass("E",5));
+            inventory.sort(java.util.Comparator.comparing(TestClass::getStr).reversed().thenComparing(TestClass::getNum));
+        }
+    /**
+     *  2. Predicate
+     *  3. Function
+     *  4.
+     */
 }
+
 
