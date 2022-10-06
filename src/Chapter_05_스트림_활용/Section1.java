@@ -1,10 +1,14 @@
 package Chapter_05_스트림_활용;
 
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.function.IntSupplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public class Section1 {
     /**
@@ -211,6 +215,144 @@ public class Section1 {
      *         연산을 수행한느데 필요한 저장소 크기는 정해져 있지 않다. 따라서 데이터 스트림의 크기가 크기거나 무한이라면 문제가 생길 수 있다.
      *         이러한 연산은 내부 상태를 갖는 연산이라고 한다.
      *      }
+     *
+     *       7. 숫자형 스트림
+     *  스트림에는 숫자 스트림을 효율적으로 처리하는 기본형 특화 스트림(primitive stream specialization)을 제공한다. 첫 번쨰는 박싱 비용을 피할 수
+     *  있도록 각 원시 타입에 특화된 스트림이 존재하며, 스트림 합계를 계산하는 sum,  최댓값/최소값을 위한 max/min을 제공하며 또한, 필요할 때 다시 객체
+     *  스트림으로 복원하는 기능도 제공한다.
+     *
+     *      7-1. 숫자 스트림으로 매핑
+     *  스트림을 특화 스트림으로 변환할 떄는 mapToInt, mapToDouble, mapToLong 세 가지 메소드를 가장 많이 사용한다. 이들은 Map과 같은 기능을 하지만
+     *  Stream<T> 대신 특화된 스트림을 반환한다.
      */
-
+    int calories = specialMenu.stream().mapToInt(Dish::getCalorie).sum();
+    /**
+     *      7-2. 객체 스트림으로 복원하기
+     */
+    IntStream intStream = specialMenu.stream().mapToInt(Dish::getCalorie);
+    Stream<Integer> stream = intStream.boxed();
+    /**
+     *      7-3. 스트림 합계와 최대/최소에서의 Optional
+     *  만약 스트림에 요소가 없는 상황과 실제 최댓값이 0인 상황을 어떻게 구별할 수 있을까? 이전에 Optional에 대해서 본적이 있다. Optional을 Integer
+     *  ,String 등의 참조 형식으로 파라미터화할 수 있다. 또한 OptionalInt, OptionalDouble, OptionalLong 세 가지 기본형 특화 스트림도 존재한다.
+     */
+    OptionalInt maxCalories = specialMenu.stream().mapToInt(Dish::getCalorie).max();
+    /**
+     *      7-4. 숫자 범위
+     *  프로그램에서 특정 범위의 숫자를 이용해야하는 경우가 생긴다. 예를 들어 1 ~ 100의 숫자를 생성한다고 가정해보자. IntStream, LongStream에서는
+     *  range, rangeClosed라는 두 가지 정적 메소드가 있다. 두 메소드 모두 첫 번째 인수 ~ 두 번째 인수로 끝나는 범위를 만들어준다. range 시작, 종료
+     *  값이 포함되지 않는 반면 rangeClosed는 시작, 종료 값이 결과에 포함된다.
+     *
+     */
+    IntStream evenNumbers = IntStream.rangeClosed(1, 100).filter(n -> ( n % 2 )== 0);
+    {
+        evenNumbers.forEach(System.out::println);
+    }
+    /**
+     *      8. 스트림 만들기
+     *  스트림을 꼭 컬렉션을 통해서만 만들 수 있는 것은 아니다. 일련의 값, 배열, 파일, 함수를 가지고 스트림을 만들 수도 있다.
+     *
+     *      8-1. 값으로 스트림 만들기
+     */
+    Stream<String> stringStream = Stream.of("Modern", "Java", "In", "Action");
+    {
+        stringStream.map(String::toUpperCase).forEach(System.out::println);
+    }
+    /**
+     *      8-2. null이 될 수 있는 객체로 스트림 만들기
+     *   자바 9부터 null이 될 수 있는 개체를 스트림으로 만들 수 있는 메소드가 추가되었다. 때로는 null이 될 수 있는 객체를 으로 만들어야할 수 있다.
+     *   예를 들어서 System.getProperty는 제공된 키에 대응하는 속성이 없으면 null을 반환한다. 이런 메소드를 스트림에 활용하려면 null을
+     *   명시해야한다.
+     */
+    String homeValue = System.getProperty("home");
+    Stream<String> homeValueStream = homeValue == null? Stream.empty() : Stream.of(homeValue);
+    /**
+     * 위와 같은 코드를 자바 9에서는
+     */
+    Stream<String> nullStream = Stream.ofNullable(System.getProperty("home"));
+    /**
+     *      8-3. 배열로 스트림 만들기
+     *  배열을 인수로 받는 정적 메소드 Arrays.stream을 이용해서 스트림을 만들 수 있다.
+     */
+    int[] numbers = {2,3,4,5,1,2,3,5,12,3,23};
+    int sumStreamValue = Arrays.stream(numbers).sum();
+    /**
+     *      8-4. 파일로 스트림 만들기
+     *  파일을 처리하는 등의 I/O 연산에 사용하는 자바의 NIO API(논블로킹 I/O)도 스트림 API를 활용할 수 있도록 업데이트 되었다. java.nio.file.Files
+     *  의 많은 정적 메소드가 스트림을 반환한다. 예를 들어 Files.inlines는 주어진 파일의 행 스트림을 문자열로 반환한다.
+     */
+    {
+        Long uniqueWords = 0L;
+        try(Stream<String> lines = Files.lines(Paths.get("data.txt"), Charset.defaultCharset())){
+            uniqueWords = lines.flatMap(line -> Arrays.stream(line.split(" "))).distinct().count();
+        } catch (IOException e){
+            e.printStackTrace();
+        }
+    }
+    /**
+     * 위의 예시는 파일에서 고유한 단어 개수를 얻는 로직이다.
+     *
+     *
+     *      8-5. 함수로 무한 스트림 만들기
+     * 스트림 API 함수에서 스트림을 만들 수 있는 두 정적 메소드 Stream.iterate와 Stream.generate를 제공한다. 두 연산을 이용해서 무한 스트림,
+     * 즉 고적된 컬렉션에서 고정된 크기로 스트림을 만들었던 것과는 달리 크기가 고정되지 않은 스트림을 만들 수 있다. iterate, generate에서 만들
+     * 만든 스트림은 요청할 때마다 주어진 함수를 이용해서 값을 만든다. 따라서 무제한으로 값을 계산할 수 있다. 하지만 보통 무한한 값을 출력하지 않도록
+     * limit(n) 함수를 함께 연결해서 사용한다.
+     *
+     *      8-5-1. iterate 메소드
+     */
+    {
+        Stream.iterate(0, n -> n + 2).limit(10).forEach(System.out::println);
+        //For를 대체할 수 있을 듯?
+    }
+    /**
+     *  iterate는 요청할 때마다 값을 생산할 수 있으며, 끝이 없으므로 무한 스트림을 만든다. 이러한 스트림을 Unbounded Stream이라고 표현한다.
+     */
+    {
+        //피보나치 수열
+        Stream.iterate(new int[] {0, 1}, arr -> new int[]{arr[1], arr[0]+arr[1]}).limit(20).forEach(System.out::println);
+    }
+    /**
+     *
+     *      8-5-2. generate 메소드
+     *  iterate와 비슷하게 generate도 요구할 때 값을 계산하는 무한 스트림을 만들수 있다. 하지만 iterate와 달리 generate는 생산된 각 값을 연속적으로
+     *  계산하지는 않는다. generate는 Suppler<T>를 인수로 받아 새로운 값을 생성한다.
+     */
+    {
+        Stream.generate(Math::random).limit(5).forEach(System.out::println);
+    }
+    /**
+     *  여기서 generate에 대해서 의문을 가질 수 있다. 우리가 사용한 Supplier는 상태가 없는 메소드, 즉 나중에 계산에 사용할 어떠한 값도 저장해 놓지 않는다.
+     *  하지만 Supplier에 상태가 없어야 하는 것은 아니다. Supplier가 상태를 저장한 다음에 스트림의 다음 값을 만들 때 상태를 고칠 수도 있다. 여기서
+     *  문제가 될만한 점은 병렬 스트림에서 Supplier에 상태가 있으면 안전하지 않다는 것이다. 따라서 generate의 Supplier에 상태를 갖는 것은
+     *  지양하는 것이 좋다.
+     */
+    IntStream twos = IntStream.generate(new IntSupplier() {
+        @Override
+        public int getAsInt() {
+            return 2;
+        }
+    });
+    /**
+     *  람다와 익명 구현 객체의 차이점은 getAsInt를 커스터마이징 할 수 있는 상태 필드를 정의할 수 있다는 점이다. 이 점이 부작용을 야기할 수 있는 예시이다.
+     *  반면 람다는 상태를 바꾸거나 하지는 않는다.
+     */
+    IntSupplier fib = new IntSupplier() {
+        private int previous = 0;
+        private int current = 1;
+        @Override
+        public int getAsInt() {
+            int oldPrev = this.previous;
+            int nextValue = this.previous + this.current;
+            this.previous = this.current;
+            this.current = nextValue;
+            return oldPrev;
+        }
+    };
+    {
+        IntStream.generate(fib).limit(10).forEach(System.out::println);
+    }
+    /**
+     *
+     */
 }
