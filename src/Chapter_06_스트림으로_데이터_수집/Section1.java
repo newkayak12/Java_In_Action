@@ -148,6 +148,15 @@ public class Section1 {
     int getTotalCalories2 = specialMenu.stream().collect(reducing(0, Dish::getCalorie, Integer::sum));
     /**
      *
+     *
+     *
+     *
+     *
+     *
+     *
+     *
+     *
+     *
      *      6.3 그룹화
      *  데이터 집합을 하나 이상의 특성으로 분류하여 그룹화하는 연산도 자바 8의 함수형을 이용하면 가독성 있게 그룹화를 구현할 수 있다. 메뉴를 그룹화하는
      *  예시를 살펴보자 이는 팩토리 메소드 Collectors.groupingBY로 수행할 수 있다.
@@ -180,5 +189,57 @@ public class Section1 {
      *
      *
      *      6.3.4 다수준 그룹화
+     *  두 인수를 받는 팩토리 메소드 Collectors.groupingBy를 이용해서 항목을 다수준으로 그룹화할 수 있다. Collectors.groupingBy는 일반적인
+     *  분류 함수와 컬렉터를 인수를 받는다. 즉, 바깥쪽 메소드에 스트림의 항목을 분류할 두 번째 기준을 정의하는 내부 groupingBy를 전달해서 두 수준으로
+     *  스트림의 항목을 그룹화할 수 있다.
+     */
+    enum Caloric {
+        DIET,NORMAl,FAT;
+    }
+    Map<Type,Map<Caloric, List<Dish>>> dishesByTypeCaloricLevel = specialMenu.stream().collect(
+            groupingBy(Dish::getType,groupingBy(dish -> {
+                if(dish.getCalorie() <= 400) return Caloric.DIET;
+                else if (dish.getCalorie() <= 700) return Caloric.NORMAl;
+                else return Caloric.FAT;
+            }))
+    );
+    /**
+     * 이렇게 하면 그룹화 결과로
+     * {
+     *      MEAT={DIET=[chicken], NORMAL=[beef], FAT=[pork]}, FISH={DIET=[prawns],NORMAL=[salmon]},
+     *      OTHER={DIET=[rice,seasonal fruit], NORMAL=[french fries, pizza]}
+     * }
+     * 를 얻을 수 있다.
+     *
+     *
+     *      6-3-3. 서브 그룹으로 데이터 수집
+     *  위에서 groupingBy로 다수준 그룹화 연산을 구현했다. 첫 번째 groupingBy로 넘겨주는 컬렉터의 형식은 제한이 없다. 아래는 그 예시이다.
+     */
+    Map<Type, Long> typeCount = specialMenu.stream().collect(groupingBy(Dish::getType, counting()));
+    /**
+     *  분류 함수 한 개의 인수를 갖는 groupingBy(f)는 groupingBy(f, toList())의 축약형이다.
+     *
+     *      > 컬렉터 결과를 다른 형식에 적용하기
+     *  컬렉터가 반환한 결과를 Collectors.collectingAndThen으로 다른 형식으로 사용할 수도 있다
+    */
+    Map<Type, Dish> mostCaloricByType = specialMenu.stream().collect(groupingBy(Dish::getType,
+            collectingAndThen(
+                    maxBy(Comparator.comparingInt(Dish::getCalorie)),
+                    Optional::get
+            )));
+    /**
+     *  팩토리 메소드 collectingAndThen은 적용할 컬렉터와 변환 함수를 인수로 받아 다른 컬렉터를 반환한다. 반환하는 컬렉터는 기존 컬렉터의 래퍼 역할을
+     *  하며, collect의 마지막 과정에서 변환하는 함수로 자신이 반환하는 값을 매핑한다.
+     *
+     *
+     *
+     *
+     *
+     *
+     *
+     *
+     *
+     *          6.4 분할
+     *   분할은 분할 함수(Partitioning function)이라고 불리는 Predicate를 분류 함수로 사용하는 특수한 그룹화 기능이다.
      */
 }
