@@ -1,8 +1,9 @@
 package Chapter_06_스트림으로_데이터_수집;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.*;
 
 public class Section1 {
     /**
@@ -87,9 +88,97 @@ public class Section1 {
     );
     long howManyDishes = specialMenu.stream().collect(Collectors.counting());
     /**
-     *  Collectors의 couting은 다른 컬렉터와 함께 사용할 때 위력을 발휘한다.
+    *  Collectors의 couting은 다른 컬렉터와 함께 사용할 때 위력을 발휘한다.
      *
      *      6-2-1. 스트림 값에서 최대값과 최소값 검색
      */
-
+    Comparator<Dish> dishCaloriesComparator = Comparator.comparing(Dish::getCalorie);
+    Optional<Dish> mostCalorieDish = specialMenu.stream().collect(maxBy(dishCaloriesComparator));
+    /**
+     * 합계, 평균 등을 반환하는 연산에도 리듀싱이 자주 사용된다. 이러한 연산을 요약 연산이라고 한다.
+     *
+     *
+     *      6-2-2. 요약 연산
+     *  Collectors 클래스는 Collector.summingInt라는 요약 팩토리 메소드를 제공한다. summingInt는 객체를 int로 매핑하는 함수의 인수로 받는다.
+     *  summingInt의 인수로 전달된 함수는 객체를 int로 매핑한 컬렉터를 반환한다. 그리고 summingInt가 Collect 메소드로 전달되면 요약 작업을 시작한다.
+     */
+    int totalCalories = specialMenu.stream().collect(summingInt(Dish::getCalorie));
+    /**
+     *  이러한 단순 합계 외에 평균값 계산 등의 연산도 요약 기능으로 제공된다. 즉, Collector.averageInt/Long/Double 등으로 다양한 형식으로 이뤄진 숫자
+     *  집합의 평균을 계산할 수 있다.
+     *  또한 이러한 모든 연산을 한 번에 수행해야할 때도 있다. 이런 상황에서는 팩토리 메소드 summerizaingInt가 반환하는 컬렉터를 사용할 수 있다.
+     */
+    IntSummaryStatistics summaryStatistics = specialMenu.stream().collect(summarizingInt(Dish::getCalorie));
+    //
+    //   private long count;
+    //    private long sum;
+    //    private int min = Integer.MAX_VALUE;
+    //    private int max = Integer.MIN_VALUE;
+    //
+    //  등을 제공한다.
+    /**
+     *      6-2-3 문자열 연결
+     *  컬렉터에 joining 팩토리 메소드를 사용하면 스트림의 각 객체에 toString 메소드를 호출해서 추출한 모든 문자열은 하나의 문자열로 연결해서 반환한다.
+     */
+    String shortMenu = specialMenu.stream().map(Dish::getName).collect(Collectors.joining());
+    /**
+     * joining 메소드는 내부적으로 StringBuilder를 사용해서 문자열을 하나로 만든다. 여기서 joining에 구분자를 제공하지 않으면 문자가 그대로 붙는다.
+     * 따라서 그래서 매개변수로 구분자를 받는다.
+     */
+    String getShortMenu = specialMenu.stream().map(Dish::getName).collect(joining(","));
+    /**
+     *      6-2-4. 범용 리듀싱 요약 연산
+     *  이러한 위의 작업들은 모두 reducing 팩토리 메소드로도 가능하다. 즉, 범용 Collectors.reducing으로도 구현할 수 있다. 그럼에도 위의 메소드들
+     *  을 구현해 놓은 이유는 편의성 때문이다.
+     */
+    int getTotalCalories = specialMenu.stream().collect(reducing(0, Dish::getCalorie, (i,j)->i+j));
+    /**
+     * 이와 같이 구현할 수 있다. 리듀싱은 세 개의 인수를 받는다.
+     *      1. 첫 번째 인수는 리듀싱의 시작 값이다.
+     *      2. 두 번쨰 인수는 리듀싱을 사용할 요소를 반환한다.
+     *      3. 세 번째 인수는 리듀싱 작업을 명시한다.
+     */
+    Optional<Dish> getMostCalorieDish = specialMenu.stream().collect(reducing((d1,d2)-> d1.getCalorie() > d2.getCalorie()? d1: d2));
+    /**
+     * 이와 같이 최대 값 역시 얻어낼 수 있다.
+     *
+     *          > 컬렉션 프레임 워크의 유연성 : 같은 연산도 각기 다른 방법으로
+     *  reducing으로 Integer의 sum을 이용해서 tatalCalroies를 더 편하게 구할 수 있다.
+     */
+    int getTotalCalories2 = specialMenu.stream().collect(reducing(0, Dish::getCalorie, Integer::sum));
+    /**
+     *
+     *      6.3 그룹화
+     *  데이터 집합을 하나 이상의 특성으로 분류하여 그룹화하는 연산도 자바 8의 함수형을 이용하면 가독성 있게 그룹화를 구현할 수 있다. 메뉴를 그룹화하는
+     *  예시를 살펴보자 이는 팩토리 메소드 Collectors.groupingBY로 수행할 수 있다.
+     */
+    Map<Type, List<Dish>> dishGroup = specialMenu.stream().collect(groupingBy(Dish::getType));
+    {
+        dishGroup.get(Type.FISH);
+        dishGroup.get(Type.MEAT);
+        dishGroup.get(Type.OTHER);
+    }
+    /**
+     * 이렇게 그룹화 하여 Map으로 반환할 수 있다. groupingBy에 전달한 요소를 기준으로 스트림이 그룹화되므로 이를 '분류 함수'라고 부른다.
+     *
+     *
+     *      6.3.1 그룹화된 요소의 조작
+     *  요소를 그룹화한 뒤 의미있는 데이터를 만들기 위해서 그룹의 요소를 조작하는 일이 있을 수 있다. 이전 예제와 달리  각 그룹을 문자열 리스트로 하여 예시를
+     *  살펴보자. groupingBy와 연계하여 세 번째 컬렉터를 사용해서 일반 맵이 아닌 flatMap 변환을 수행할 수도 있다.
+     */
+    Map<String,List<String>> dishTag = Map.of("pork",  Arrays.asList("greasy", "salty"),"beef", Arrays.asList("salty", "roasted"),
+            "chicken", Arrays.asList("fried", "crisp"), "french fries", Arrays.asList("greasy","fried"), "rice", Arrays.asList("light", "natural"),
+            "pizza", Arrays.asList("tasty", "salty"), "prawns", Arrays.asList("tasty", "roasted"), "salmon", Arrays.asList("delicious","fresh"));
+    /**
+     * flatMapping 컬렉터를 사용하면 각 형식의 요리의 태그를 간편하게 추출할 수 있다.
+     */
+    Map<Type, Set<String>> dishNamesByType = specialMenu.stream().collect(groupingBy(Dish::getType,
+            flatMapping(dish -> dishTag.get(dish.getName()).stream(), toSet())));
+    /**
+     * Meat=[salty,greasy,roasted,fried,crisp], FISH=[roasted,tasty,fresh,delicious], OHTER=[salty,greasy,natural,light,tasty,
+     * fresh,fried]}와 같은 결과를 얻을 수 있다.
+     *
+     *
+     *      6.3.4 다수준 그룹화
+     */
 }
