@@ -1,7 +1,10 @@
 package Chapter_07_병렬_데이터_처리와_성능;
 
+import java.util.Spliterator;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -284,6 +287,128 @@ public class Section1 {
      *
      *                      > 7.3.2 커스텀 Spliterator 구현하기
      *  Spliterator 구현 예제를 보면서 이해해보자. 문자열의 단어 수를 계산하는 단순한 메소드를 구현할 것이다.
+     */
+    public int countWordsIteratively(String s){
+        int counter = 0;
+        boolean lastSpace = true;
+        for ( char c : s.toCharArray()){ // 문자열의 모든 문자를 하나씩 탐색
+            if(Character.isWhitespace(c)){
+                lastSpace = true;
+            } else {
+                if(lastSpace) counter++; //문자를 탐색하다 공백을 만나면 탐색한 문자를 단어로 간주하여(공백 문자는 제외) 단어 수 증가
+                lastSpace = false;
+            }
+        }
+        return counter;
+    }
+    /**
+     *
+     *          > 함수형으로 단어 수를 세는 메소드 재구현하기
+     * 우선 String을 스트림으로 변환해야한다. 아쉽지만 스트림은 int, long, double 기본형만 제공하므로 Stream<Character>를 사용해야 한다.
+     * Stream<Character> stream = IntStream.range(0, SENTENCE.length).mapToObj(SENTENCE::charAt);
+     * 스트림에 리듀싱 연산을 실행하면서 단어 수를 계산할 수 있다. 이때 지금까지 발견한 단어 수를 계산하는 int 변수와 마지막 문자가 공백이었지는지를
+     * 기억하는 Boolean 변수 등 두 가지 변수가 필요하다. 자바는 튜플이 없으므로 변수 상태를 캡슐화하는 새로운 클래스 WordCounter를 만들어야 한다.
+     */
+    class WordCounter {
+        private final int counter;
+        private final boolean lastSpace;
+        public WordCounter(int counter, boolean lastSpace){
+            this.counter = counter;
+            this.lastSpace = lastSpace;
+        }
+        public WordCounter accumulate(Character c){ // 반복 알고리즘처럼 accumulate 메소드는 문자열의 문자를 하나씩 탐색한다.
+            if(Character.isWhitespace(c)){
+                return lastSpace ? this : new WordCounter(counter, true);
+            } else {
+                return lastSpace ? new WordCounter(counter + 1, false) : this;
+                // 문자를 하나씩 탐색하다 공백을 만나면 지금까지 탐색한 문자를 단어로 간주하여 단어 수를 증가시킨다.
+            }
+        }
+        public WordCounter combine(WordCounter wordCounter){
+            return new WordCounter(counter + wordCounter.counter, wordCounter.lastSpace);
+            //두 counter, WordCounter를 더한다.   // counter 값만 더할 것이므로 마지막 공백은 신경쓰지 않는다.
+        }
+        public int getCounter() {
+            return counter;
+        }
+    }
+    private int countWord(Stream<Character> stream){
+        WordCounter wordCounter = stream.reduce(new WordCounter(0, true),
+                                                    WordCounter::accumulate,
+                                                    WordCounter::combine);
+        return wordCounter.getCounter();
+    }
+    String inferno = "Dante wakes up to find that he has crossed the Acheron, and Virgil leads him to the first circle of the abyss, Limbo, where Virgil himself resides. The first circle contains the unbaptized and the virtuous pagans, who, although not sinful enough to warrant damnation, did not accept Christ. Dorothy L. Sayers writes," +
+            " \"After those who refused choice come those without opportunity of choice. They could not, that is, choose Christ; they could, and did, choose human virtue, and for that they have their reward." +
+            "\" Limbo shares many characteristics with the Asphodel Meadows, and thus, the guiltless damned are punished by living in a deficient form of Heaven.";
+    Stream<Character> stream = IntStream.range(0, inferno.length()).mapToObj(inferno::charAt);
+    {
+        System.out.println(countWord(stream));
+    }
+    /**
+     *          > WordCounter 병렬로 수행하기
+     *  countWord(stream.parallel())로 넘기더라도 원하는 대로 되지 않는다. 원래 문자열을 임의의 위치에서 둘로 나누다보니 하나의 단어를 둘로 계산하는
+     *  상황이 발생할 수 있다. 즉 순차 스트림을 병렬로 바꿀 때 스트림 분할 위치에 따라 잘못된 결과가 도출될 수 있다. 이 문제를 어떻게 해결할 수 있을까?
+     *  문자열을 임의의 위치에서 분할하지 말고 단어가 끝나는 위치에서만 분할하는 방법으로 이를 해결할 수 있다.
+     */
+    class WordCounterSpliterator implements Spliterator<Character>{
+        private final String string;
+        private int currentChar = 0;
+        public WordCounterSpliterator(String string){
+            this.string = string;
+        }
+        @Override
+        public boolean tryAdvance(Consumer<? super Character> action) {
+            action.accept(string.charAt(currentChar++));
+            return currentChar < string.length();
+        }
+
+        @Override
+        public Spliterator<Character> trySplit() {
+            int currentSize = string.length() - currentChar;
+            if ( currentSize < 10 ){
+                return null;
+            }
+            for ( int splitPos = currentSize / 2 + currentChar; splitPos < string.length(); splitPos ++){
+                if(Character.isWhitespace(string.charAt(splitPos))){
+                    Spliterator<Character> spliterator = new WordCounterSpliterator(string.substring(currentChar, splitPos));
+                    currentChar = splitPos;
+                    return spliterator;
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public long estimateSize() {
+            return string.length() - currentChar;
+        }
+
+        @Override
+        public int characteristics() {
+            return ORDERED + SIZED + NONNULL + IMMUTABLE;
+        }
+    }
+    /**
+     *  위의 예시를 분석하면
+     *
+     *      1. tryAdvance 메소드는 문자열에서 현재 인덱스에 해당하는 문자를 Consumer에 제공한 다음에 인덱스를 증가시킨다. 인수로 전달된 Consumer
+     *      는 스트림을 탐색하면서 적용해야 하는 함수 집합이 작업을 처리할 수 있도록 소비한 문자를 전달하는 자바 내부 클래스이다. 예제에서는 스트림을
+     *      탐색하면서 하나의 리듀싱 함수, 즉 WordCounter의 accumulate 메소드만 적용한다. tryAdvance 메소드는 새로운 커서 위치가 전체 문자열
+     *      길이보다 작으면 참을 반환하며 이는 반복 탐색해야할 문자가 남아있음을 의미한다.
+     *
+     *      2. trySplit은 반복될 자료구조로 분할하는 로직을 포함하므로 Spliterator에서 가장 중요한 메소드이다. 이전에 RecursiveTask의 compute
+     *      메소드에서 했던 것처럼 우선 분할 동작을 중단할 한계를 설정해야한다. 실전 애플리케이션에서는 너무 많은 태스크를 만들지 않도록 더 높은 한계값을
+     *      설정해야한다. 분할 과정에서 남은 문자 수가 한계값 이하이면 null을 반환해서 분할을 중지해야한다. 반대로 분할이 필요한 상황에서는 파싱해야 할
+     *      문자열 청크의 중간 위치를 기준으로 분할하도록 지시한다. 이때 단어 중간을 분할하지 않도록 빈 문자가 나올 때까지 분할 위치를 이동시킨다. 분할할
+     *      위치를 찾았다면 새로운 Spliterator를 만든다. 새로 만든 Spliterator는 현재 위치(currentChar)부터 분할된 위치까지의 문자를 탐색한다.
+     *
+     *      3. 탐색해야할 요소의 개수(estimatedSize)는 Splitator가 파싱할 문자열 전체 길이(String.length())와 현재 반복 중인 위치(currentChar)
+     *      의 차이다.
+     *
+     *      4. 마지막으로 characteristic 메소드는 프레임워크에 Spliterator가 OREDER, SIZED, SUBSIZED, NONNULL, IMMUTABLE 등의 특성임을
+     *      알려준다.
      *
      */
+
 }
