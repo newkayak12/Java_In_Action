@@ -1,5 +1,18 @@
 package Charter_08_컬렉션_API_개선;
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
+import java.util.function.Function;
+
+import static java.util.Map.entry;
+
 public class Section1 {
     /**
      *          > 8.1 컬렉션 팩토리
@@ -72,6 +85,232 @@ public class Section1 {
      *          if(Character.isDigit(transaction.getReferenceCode().charAt(0)))) {
      *              iterator.remove();
      *          }
-     *     }
+     *    }
+     *
+     *
+     *          > 8.2.2 replaceAll 메소드
+     *  List 인터페이스의 replaceAll을 사용해서 리스트의 각 요소를 새로운 요소로 바꿀 수 있다.
+     *
+     *  referenceCodes.stream().map(code -> Character.toUpperCase(code.charAt(0)) + code.substring(1))
+     *  .toCollect(Collectors.toList()).forEach(System.out::println);
+     *
+     * 위 코드는 새 문자열 컬렉션을 만든다. 그러나 우리가 원하는 것은 기존 컬렉션을 바꾸는 것이다. ListIterator 객체를 이용하면 이 문제를 해결할 수 있다.
+     *
+     *  for( ListIterator<String> iterator = referenceCodes.listIterator(); iterator.hasNext()) {
+     *      String code = iterator.next()
+     *      iterator.set(Character.toUpperCase(code.charAt(0) + code.subString(1));
+     *  }
+     *
+     *  그러나 문제가 또 발생한다. 일단 코드가 복잡해지는 것은 둘째치고 컬렉션 객체를 Iterator 객체와 혼용하면 반복, 컬렉션 변경이 동시에 이뤄지면서
+     *  문제를 일으킬 수 있다. 자바 8에서 추가된 replaceAll을 사용하면 문제를 최소한으로 줄이고 요소를 바꿀 수 있다.
+     *
+     *      referenceCodes.replaceAll(code -> Character.toUpperCase(code.charAt(0)) + code.subString(1));
+     *
+     *
+     *              > 8.3 Map의 다양한 메소드
+     *          >8.3.1 forEach
+     *  Map에서 K,V를 반복하면서 확인하는 작업은 귀찮은 일 중 하나이다. Map.Entry<K,V>의 반복자를 사용해서 맵의 항목 집합을 반복할 수 있다.
+     *
+     *      for(Map.Entry<String, Integer> entry: ageOfFriends.entrySet()){
+     *          String friend = entry.getKey();
+     *          Integer age = entry.getValue();
+     *          Sysout.out.println(friend + " is " + age + " years old);
+     *      }
+     *
+     *  자바 8부터는 BiConsumer를 인수로 받는 ForEach 메소드를 지원한다.
+     *
+     *      ageOfFriend.forEach((friend, age) -> System.out.println(friend + " is " + age + " years old"));
+     *
+     *          > 8.3.2 정렬 메소드
+     *  다음 두 개의 새로운 유틸리티를 이용하면 맵 항목을 키 또는 값을 기준으로 정렬할 수 있다.
+     *
+     *      1. Entry.comparingByValue
+     *      2. Entry.comparingByKey
      */
+    Map<String,String> favouriteMovies = Map.ofEntries(entry("A", "Apple"), entry("D", "Design")
+            , entry("B", "Black"));
+    {
+        favouriteMovies.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEachOrdered(System.out::println);
+        favouriteMovies.entrySet().stream().sorted(Map.Entry.comparingByValue()).forEachOrdered(System.out::println);
+    }
+    /**
+     *
+     *                      {
+     *                            > HashMap 성능
+     *                         자바 8에서는 HashMap의 내부 구조를 바꿔서 성능을 개선했다. 기존에 맵의 항목은 키로 생성한
+     *                         해시 코드로 접근할 수 있는 버켓에 저장했다. 많은 키가 같은 해시코드를 반환하는 상황이 되면
+     *                         O(n)의 시간이 LinkedList로 버킷을 반환해야 하므로 성능이 저하된다.
+     *
+     *                         최근에는 버킷이 너무 커질 경우 이를 O(log(n))의 시간이 소요되는 정렬된 트리를 이용해 동적으로
+     *                         치환해 충돌이 일어나는 요소 반환 성능을 개선했다. 하지만 키가 String, Number 클래스 같은
+     *                         Comparable의 형태여야만 정렬된 트리가 지원된다.
+     *                      }
+     *
+     *  여기서 요청한 키가 맵에 존재하지 않을 때 이를 어떻게 처리하느냐도 흔히 발생하는 문제이다. getOrDefault 메소드로 이를 쉽게 해결할 수 있다.
+     *
+     *
+     *
+     *              > 8.3.3 getOrDefault
+     *  기존에는 찾으려는 값이 없으면 Null이 반환됐다. NullPointerException을 방지하려면 따로 Null인지 확인하는 코드는 굉장한 피로감을 줬었다. 그러나
+     *  getOrDefault를 사용하면 이 문제를 쉽게 해결할 수 있다. 이 메소드는 첫 번째 인수로 키, 두 번째 인수로 default 값을 받으며, 키가 존재하지
+     *  않으면 기본값을 반환한다.
+     */
+    Map<String,String> map = new HashMap<>();
+    {
+        map.getOrDefault("HELLO", "HELLO");
+    }
+    /**
+     *
+     *              > 8.3.4 계산 패턴
+     *  맵에 키가 존재하는지 여부에 따라 어떤 동작을 실행하고 결과를 저장해야하는 상황이 필요할 때가 있다. 예를 들어서 키를 이용해서 값 비싼 동작을 실행한
+     *  결과를 캐싱하려한다. 키가 존재하면 결과를 다시 계산할 필요가 없다. 이때 아래의 세 연산이 도움을 준다.
+     *
+     *      1. computeIfAbsent : 제공된 키에 해당하는 값이 없으면(혹은 Null), 키를 이용해서 새 값을 계산하고 Map에 추가한다.
+     *      2. computeIfPresent : 제공된 키가 존재하면 새 값을 계산하고 맵에 추가한다.
+     *      3. compute: 제공된 키로 새 값을 계산하고 맵에 저장한다.
+     *
+     *   정보를 캐싱할 때 computeIfAbsent를 활용할 수 있다. 파일 집합의 각 행을 파싱해서 SHA-256을 계산한다고 가정해보자. 기존에 이미 데이터를
+     *   처리했다면 이 값을 다시 계산할 필요가 없다.
+     *   맵을 이용해서 캐시를 구현했다고 가정하면 아래와 같이 MessageDigest 인스턴스로 SHA-256 해시를 계산할 수 있다.
+     */
+    Map<String, byte[]> dataToHash = new HashMap<>();
+    MessageDigest messageDigest;
+
+    {
+        try {
+            messageDigest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    /**
+     *    이제 데이터를 반복하면서 결과를 캐싱한다.
+     */
+    private byte[] calculateDigest(String key){
+        return messageDigest.digest(key.getBytes(StandardCharsets.UTF_8));
+    }
+    {
+        URI uri = URI.create("/Users/sanghyeonkim/Downloads/port/javaInAction/JavaInAction/src/Charter_08_컬렉션_API_개선/test.txt");
+        Path paths = Paths.get(uri);
+        List<String> lines = null;
+        try {
+            lines = Files.readAllLines(paths);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        lines.stream()
+        .forEach(line-> dataToHash.computeIfAbsent(line, this::calculateDigest));
+    }
+    /**
+     *  여러 값을 저장하는 맵을 처리할 때도 이 패턴을 유용하게 활용할 수 있다. Map<K,List<v>>에 요소를 추가하려면 항목이 초기화되어 있는지 확인해야한다.
+     */
+    Map<String,List<String>> friendsToMovies = Map.of("Raphael", Arrays.asList("Decision to leave"));
+    String friend = "Raphael";
+    List<String> movies = friendsToMovies.get(friend);
+    {
+        if(movies == null){//리스트 초기화 확인
+            movies = new ArrayList<>();
+            friendsToMovies.put(friend, movies);
+        }
+    }
+    /**
+     *  computeIfAbsent는 키가 존재하지 않으면 값을 계산해 맵에 추가하고 키가 존재하면 기존 값을 반환한다. 위의 복잡한 코드를 조금 더 간단하게
+     *  바꿀 수 있다.
+     */
+    {
+        friendsToMovies.computeIfAbsent("Raphael", name -> new ArrayList<>()).add("StarWars");
+        System.out.println(friendsToMovies);
+        Function<String,List<String>> a = name -> new ArrayList<>();
+    }
+    /**
+     *   computeIfPresent 메소드는 현재 키와 관련된 값이 맵에 존재하며, Null이 아닐 때만 새 값을 계산한다. 값을 만드는 함수가 NULL을 반환하면
+     *   현재 매핑을 맵에서 제거한다. 하지만 매핑을 제거할 때는 remove 메소드를 오버라이드하는 것이 더 적합하다.
+     *
+     *
+     *              >8.3.5 삭제 패턴
+     *    제공된 키에 해당하는 맵 항목을 제거하는 remove는 이미 알고 있을 것이다. 자바 8에서는 키가 특정한 값과 연관되었을 때만 항목을 제공하는
+     *    오버로드 메소드를 제공한다.
+     */
+    public boolean removeTest(String key, String value){
+        if(favouriteMovies.containsKey(key) && Objects.equals(favouriteMovies.get(key), value)){
+            favouriteMovies.remove(key);
+            return true;
+        } else {
+            return false;
+        }
+    }
+    {
+        String key = "Raphael";
+        String value = "APPSTORE";
+        removeTest(key, value);
+        /**
+         * 오버로드 메소드를 사용하면 코드를 간결하게 구현할 수 있다.
+         */
+        favouriteMovies.replace(key, value);
+    }
+    /**
+     *
+     *
+     *              >8.3.6 교체 패턴
+     *  맵의 항목을 바꾸는데 사용할 수 있는 두 개의 메소드가 맵에 추가됐다.
+     *      1. replaceAll: BiFunction을 적용한 결과로 각 항목의 값을 교체한다. 이 메소드는 List의 replaceAll과 비슷한 동적을 한다.
+     *      2. replace: 키가 존재하면 맵의 값을 바꾼다. 키가 특정 값으로 매핑되었을 때만 값을 교체하는 오버로드된 메소드도 있다.
+     */
+    {
+        Map<String, String> favouriteMovies = new HashMap<>();
+        favouriteMovies.put("Raphael", "starWars");
+        favouriteMovies.put("Olivia", "jamesBond");
+        favouriteMovies.replaceAll((friend, movie) -> movie.toUpperCase());
+        System.out.println(favouriteMovies);
+    }
+    /**
+     *  replace는 한 개의 맵에서만 사용할 수 있다. 두 개의 맵에서 값을 합치거나 값을 바꿔야한다면 어떻게 할까?
+     *
+     *
+     *
+     *              > 8.3.7 합침
+     *   만약 두 그룹의 연락처를 포함하는 두 개의 맵을 합친다고 가정하다. 그럼 아래와 같이 putAll을 사용할 수 있다.
+     */
+    {
+        Map<String, String> family = Map.of("Teo", "StarWars", "Cristina", "JamesBond");
+        Map<String, String> friend = Map.of("Raphael", "StarWars", "James", "JamesBond");
+        Map<String,String> everyOne = new HashMap<>(family);
+        everyOne.putAll(friend);
+    }
+    /**
+     *   중복된 키가 없다면 위 코드는 잘 동작한다. 값을 조금 더 유연하게 합쳐야 한다면 새로운 merge 메소드를 이용할 수 있다. 이 메소드는 중복된 키를 어떻게
+     *   합칠지 결정하는 BiFunction을 인수로 받는다. family와 friends 두 맵 모두에 Cristina가 다른 영화 값으로 존재한다고 가정해보자
+     */
+    {
+        Map<String, String> family = Map.of("Teo", "StarWars", "Cristina", "JamesBond");
+        Map<String, String> friend = Map.of("Raphael", "StarWars", "Cristina", "JamesBond");
+        /**
+         *  forEach, merge로 키가 같아서 생기는 충돌을 해결할 수 있다.
+         */
+        Map<String,String> everyOne = new HashMap<>(family);
+        friend.forEach((k,v)->everyOne.merge(k,v, (a,b)->a+"&"+b));
+        System.out.println(everyOne);
+    }
+    /**
+     *   "지정한 키와 연관된 값이 없거나 값이 없거나 값이 NULL이면 merge는 키를 NULL이 아닌 값과 연결한다. 아니면 merge는 연결된 값을 주어진
+     *   매핑 함수의 [결과] 값으로 대치하거나 결과가 NULL이면 [항목]을 제공한다."
+     *
+     *  merge를 이용해서 초기화 검사를 구현할 수도 있다.
+     */
+    {
+        Map<String, Long> moviesToCount = new HashMap<>();
+        String movieName = "jamesBond";
+        Long count = moviesToCount.get(movieName);
+        if(count == null ){
+            moviesToCount.put(movieName,1L);
+        } else {
+            moviesToCount.put(movieName,count + 1L);
+        }
+
+        /**
+         * 위 코드를 아래의 코드로 대체할 수 있다.
+         */
+        moviesToCount.merge(movieName, 1L, (key, value) -> value + 1L);
+
+    }
 }
