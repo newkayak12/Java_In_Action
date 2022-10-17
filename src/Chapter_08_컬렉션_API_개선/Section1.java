@@ -1,4 +1,4 @@
-package Charter_08_컬렉션_API_개선;
+package Chapter_08_컬렉션_API_개선;
 
 import java.io.IOException;
 import java.net.URI;
@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import static java.util.Map.entry;
@@ -312,5 +313,49 @@ public class Section1 {
          */
         moviesToCount.merge(movieName, 1L, (key, value) -> value + 1L);
 
+        /**
+         *           > 8.4 개선된 ConcurrentHashMap
+         *  ConcurrentHashMap은 동시성에 친화적인 HashMap이다. ConcurrentHashMap은 내부 자료구조의 특정 부분만 잠궈서 동시성을 첨가했고,
+         *  갱신 작업을 허용한다. 따라서 동기화된 Hashtable 버전에 비해서 읽기 쓰기 연산 성능이 월등하다.
+         *  (*** 표준 HashMap은 비동기로 동작한다.)
+         *
+         *     > 8.4.1 리듀스, 검색
+         *
+         *  ConcurrentHashMap은 스트림에서 선보였던 세 가지 새로운 연산을 지원한다.
+         *
+         *          1. forEach
+         *          2. reduce
+         *          3. search
+         *
+         *   자세하게 들어가면 아래와 같다.
+         *
+         *          1. 키, 값으로 연산(forEach, reduce, search)
+         *          2. 키로 연산(forEachKey, reduceKeys, searchKeys)
+         *          3. 값으로 연산(forEachValue, reduceValues, searchValues)
+         *          4. Map.Entry 객체로 연산(forEachEntry, reduceEntries, searchEntires)
+         *   이들 연산은 ConcurrentHashMap의 상태를 잠그지 않고 연산을 수행한다. 따라서 이들 연산에 제공한 함수는 계산이 진행되는 동안 바뀔 수 있는
+         *   객체, 값, 순서 등에 의존하지 않아야 한다.
+         *
+         *   또한 이들 연산에 병령성 기준값(threshold)을 지정해야 한다. 맵의 크기가 주어진 기준값보다 작으면 순차적으로 연산을 실행한다. 기준값을
+         *   1로 지정하면 공통 쓰레드 풀을 이용해서 병렬성을 극대화 한다. Long.MAX_VALUE를 기준값으로 하면 싱글 쓰레드 연산을 실행한다.
+         */
+
+        ConcurrentHashMap<String,Long> map = new ConcurrentHashMap<>();
+        long parallelismThreshold = 1;
+        Optional<Long> maxValue = Optional.ofNullable(map.reduceValues(parallelismThreshold, Long::max));
+        /**
+         *  int, long, doulbe 등의 기본값에는 전용 each reduce 연산이 제공되므로 reduceValuesToInt, reduceKeysToLong을 이용하면
+         *  박싱 없이 효율적으로 작업할 수 있다.
+         *
+         *
+         *
+         *       > 8.4.2 계수
+         *   ConcurrentHashMap 클래스는 맵의 매핑 개수를 반환하는 mappingCount 메소드를 제공한다. 기존의 size 메소드 대신 새 코드에서는 int를
+         *   반환하는 mappingCount 메소드를 사용하는 것이 좋다. 그래야 매핑 개수가 int 범위를 넘어서는 이후 상황을 대처할 수 있기 떄문이다.
+         *
+         *      > 8.4.3 집합뷰
+         *   ConcurrentHashMap 클래스는 ConcurrentHashMap을 집합 뷰로 변환하는 KeySet이라는 새 메소드를 제공한다. 맵을 바꾸면 집합도 바뀌고
+         *   집합을 바꾸면 맵도 영향을 받는다. newKeySet이라는 새 메소드로 ConcurrentHashMap으로 유지되는 집합을 만들 수도 있다.
+         */
     }
 }
