@@ -2,14 +2,12 @@ package Chapter_09_리팩토링_테스팅_디버깅;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.IOError;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 
@@ -246,7 +244,105 @@ public class Section1 {
      *
      *              > 9.2.3 옵저버
      *  어떤 이벤트가 발생했을 때 한 객체(주체)가 다른 객체 리스트(옵저버)에 자동으로 알림을 보내야하는 상황에서 옵저버 패턴을 사용한다. GUI 애플리케이션
-     *  에서 옵저버 패턴이 자주 사용된다.
+     *  에서 옵저버 패턴이 자주 사용된다. 버튼 같은 GUI 컴포넌트에 옵저버를 설정할 수 있다. 그리고 사용자가 버튼을 클릭하면 옵저버에 알림이 전달되고 정해진
+     *  동작을 수행한다. 다른 예시로는 주식의 가격 변동에 반응하는 다수의 거래자와 같은 경우에도 옵저버 패턴을 사용할 수 있다.
+     *
+     *  실제 코드로 옵저버 패턴이 어떻게 동작하는지 살펴보자. 옵저버 패튼으로 트위터 같은 커스터마이즈된 알림 시스템을 설계하고 구현할 수 있다. 다양한
+     *  신문 매체가 뉴스 트윗을 구독하고 있으며, 특정 키워드를 포함하는 트윗이 등록되면 알림을 받고 싶어한다.
+     *  우선 다양한 옵저버를 그룹화할 Observer 인터페이스가 필요하다. Observer 인터페이스는 새로운 트윗이 있을 때 주제(Feed)가 호출될 수 있도록
+     *  notify라는 하나의 메소드를 제공한다.
      */
+    interface Observer {
+        void notify(String tweet);
+    }
+    class NYTimes implements Observer {
+        @Override
+        public void notify(String tweet) {
+            if( tweet != null && tweet.contains("money") ){
+                System.out.println("Breaking news in NY " + tweet);
+            }
+        }
+    }
+    class Guardian implements Observer {
+        @Override
+        public void notify(String tweet) {
+            if( tweet != null && tweet.contains("queen") ){
+                System.out.println("Yet more news from London " + tweet);
+            }
+        }
+    }
+    class LeMonde implements Observer {
+        @Override
+        public void notify(String tweet) {
+            if( tweet != null && tweet.contains("wine") ){
+                System.out.println("Today cheese, wine and news! " + tweet);
+            }
+        }
+    }
+    /**
+     * 주제도 구현해야한다. 주제는 registerObserver로 새로운 옵저버를 등록하고 notifyObservers로 트윗의 옵저버에 이를 알린다.
+     */
+    interface Subject {
+        void registerObserver(Observer observer);
+        void notifyObserver(String tweet);
+    }
+    class Feed implements Subject {
+        private final List<Observer> observers = new ArrayList<>();
+        @Override
+        public void registerObserver(Observer observer) {
+            this.observers.add(observer);
+        }
+
+        @Override
+        public void notifyObserver(String tweet) {
+            observers.forEach(observer -> observer.notify(tweet));
+        }
+    }
+    {
+        Feed f = new Feed();
+        f.registerObserver(new NYTimes());
+        f.registerObserver(new Guardian());
+        f.registerObserver(new LeMonde());
+        f.notifyObserver("The queen said her favourite book is Modern Java in Action");
+        /**
+         * Pub-Sub과 Observer의 차이점은
+         * Pub-Sub은 MessageBroker, EventBus 존
+         * Observer패턴은 Observer와 Subject가 서로를 인지하지만 Pub-Sub패턴의 경우 서로를 전혀 몰라도 상관없습니다.
+         * [https://jistol.github.io/software%20engineering/2018/04/11/observer-pubsub-pattern/]
+         */
+    }
+    /**
+     *          > 람다 표현식으로 ObserverPattern 구현하기
+     */
+    {
+        Feed f = new Feed();
+        f.registerObserver((String tweet) -> {
+            if( tweet != null && tweet.contains("money") ){
+                System.out.println("Breaking news in NY " + tweet);
+            }
+        });
+        f.registerObserver((String tweet) -> {
+             if( tweet != null && tweet.contains("queen") ){
+                System.out.println("Yet more news from London " + tweet);
+            }
+        });
+        f.registerObserver((String tweet) -> {
+            if( tweet != null && tweet.contains("wine") ){
+                System.out.println("Today cheese, wine and news! " + tweet);
+            }
+        });
+        f.notifyObserver("The queen said her favourite book is Modern Java in Action");
+    }
+    /**
+     *  위의 코드는 세 개의 옵저버를 명시적으로 인스턴스화 하지 않고 람다 표현식을 직접 절달해서 실행할 동작을 지정할 수 있다. 그렇다면 항상 람다를 사용해야
+     *  할까? 물론 항상은 아니다. 위 예제는 비교적 간단하니 다행이지만 오히려 가독성을 해칠 수도 있다. 따라서 너무 복잡하다면 기존의 클래스로 명시적 구현을
+     *  하는 것이 나을 수도 있다.
+     *
+     *
+     *
+     *              > 9.2.4 의무 체인
+     */
+
+
 
 }
