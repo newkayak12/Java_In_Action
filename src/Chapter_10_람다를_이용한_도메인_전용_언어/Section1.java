@@ -1,5 +1,8 @@
 package Chapter_10_람다를_이용한_도메인_전용_언어;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Section1 {
     /**
      *      개발자들은 프로그래밍 언어도 언어라는 사실을 잊고는 한다. 언어의 주요 목표는 메시지를 명확하고 안정적인 방식으로 전달하는 것이다.
@@ -40,5 +43,158 @@ public class Section1 {
      *          5. 집중 : 비즈니스 도메인의 규칙을 표현할 목적으로 설계된 언어이므로 프로그래머가 특정 코드에 집중할 수 있다. 결과적으로 생산성이 좋아진다.
      *          6. 관심사 분리 : 지정된 언어로 비즈니스 로직을 표현함으로 애플리케이션의 인프라구조와 관련된 문제와 독립적으로 비즈니스 관련된 코드에서
      *          집중하기가 용이하다. 결과적으로 유지보수가 쉬운 코드를 구현한다.
+     *
+     *     반면, DSL로 인해 아래와 같은 단점도 있다.
+     *
+     *          1. DSL 설계의 어려움 : 간결하게 제한적인 언어에 도메인 지식을 담는 것이 쉽지 않다.
+     *          2. 개발 : 코드 DSL을 추가하는 작업은 초기 프로젝트에 많은 비용과 시간이 소모되는 작업이다. 또한, DSL 유지보수와 변경은 프로젝트에 부담을 주는 요소이다.
+     *          3. 추가 우회 계층 : DSL은 추가적인 계층으로 도메인 모델을 감싸며 이 때 계층을 최대한 작게 만들어 성능 문제를 회피한다.
+     *          4. 새로 배워야 하는 언어 : 여러 개를 동시에 사용 하는 것은 부담을 가중시킨다. 또한 이들이 유기적으로 작동하게 하는 것은 어렵다.
+     *          5. 호스팅 언어의 한계 : 자바는 꽤나 문법이 엄경한 편이다. 이런 경우는 사용자 친화적으로 DSL을 만들기 어렵다. 그나마 람다로 이를 해소할 수 있다.
+     *
+     *
+     *              > 10.1.2 JVM에서 이용할 수 있는 다른 DSL 해결책
+     *     DSL의 카테고리를 구분하는 방법은 마틴 파울러가 소개한 방법으로 내부 DSL, 외부 DSL을 나누는 것이다. 내부 DSL(임베디드 DSL이라고 부른다.)
+     *     은 순수 자바 코드 같은 기존 호스팅 언어 기반으로 구현하는 반면, standAlone이라고 불리는 외부 DSL은 호스팅 언어와는 독립적인 자체 문법을 가진다.
+     *
+     *
+     *          > 내부 DSL
+     *     역사적으로 자바는 유연성이 떨어지는 문법으로 읽기 쉽고, 간단하고 표현력있는 DSL을 만드는데 한계가 있었다. 람다가 등장하면서 이 부분이 일부
+     *     해소됐다. 람다를 활용하면 익명 내부 클래스를 사용해서 DSL을 구현하는 것보다. 가성비를 유지하는 DSL를 만들 수 있다. 자바를 이용하면
+     *
+     *          1. 기존 자바 언어를 이용하면 외부 DSL에 비해 새로운 패턴과 기술을 익혀 DSL을 구현하는 노력이 현저히 준다.
+     *          2. 순수 자바로 DSL을 구현하면 나머지 코드와 함께 DSL을 컴파일 할 수 있다. 따라서 외부 컴파일러, 툴을 이용할 필요가 없다.
+     *          3. 기존에 있던 자바 지식으로 구현하기 떄문에 새로운 언어를 배울 필요가 없다.
+     *          4. 한 개의 언어로 한 개의 도메인 또는 여러 도메인을 대응하지 못해 추가로 DSL을 개발해야하는 상화엥서 자바를 이용하면 DSL을 쉽게 합칠
+     *          수 있다. (다중 DSL)
+     *
+     *          > 다중 DSL
+     *     JVM 위에서 실행되는 언어의 수가 꽤 많기에 이를 이용하면 여러 언어에 대응할 수 있다.
+     *
+     *
+     *          > 외부 DSL
+     *     외부 DSL을 개발하는 가장 큰 장점은 무한한 유연성이다. 우리에게 필요한 특성을 제공하는 언어를 설계할 수 있다는 것이 장점이다. 하지만 분리로
+     *     DSL과 호스트 언어 사이의 인공 계층이 생기므로 양날의 검이된다.
+     *
+     *
+     *                  > 10.2 최신 자바 API의 작은 DSL
+     *     자바의 새로운 기능의 장점을 적용한 첫 API는 네이티브 자바 API 자신이다. 자바 8 이전의 네이티브 자바는 이미 한 개의 추상 메소드를 가진 인터
+     *     페이스를 갖고 있었다. 그러나 익명 구현 클래스를 구현하려면 불필요한 코드가 추가되어야 한다. 람다와 메소드 참조는 이 과정을 축약해준다.
+     *
+     *
+     *                  > 10.2.1 스트림 API는 컬렉션을 조작하는 DSL
+     *     Stream 인터페이스는 네이티브 자바 API에 작은 내부 DSL을 적용한 좋은 예시이다. 사실 Stream은 컬렉션의 항목을 필터, 정렬, 변환, 그룹화
+     *     , 조작하는 DSL이라고 볼 수 있다.
+     *
+     *
+     *
+     *                  > 10.2.2 데이터를 수집하는 DSL인 Collectors
+     *     Stream 인터페이스를 데이터 리스트를 조작하는 DSL로 간주할 수 있음을 확인했다. 마찬가지로 Collector 인터페이스는 데이터 수집을 수행하는
+     *     DSL로 볼 수 있다.
+     *
+     *
+     *                  > 10.3 자바로 DSL을 만드는 패턴과 기법
+     */
+    public class Stock {
+        private String symbol;
+        private String market;
+
+        public String getSymbol() {
+            return symbol;
+        }
+        public void setSymbol(String symbol) {
+            this.symbol = symbol;
+        }
+        public String getMarket() {
+            return market;
+        }
+        public void setMarket(String market) {
+            this.market = market;
+        }
+    }
+    public enum Type {BUY, SELL}
+    public class Trade {
+        private Type type;
+        private Stock stock;
+        private int quantity;
+        private double price;
+
+        public Type getType() {
+            return type;
+        }
+        public void setType(Type type) {
+            this.type = type;
+        }
+        public Stock getStock() {
+            return stock;
+        }
+        public void setStock(Stock stock) {
+            this.stock = stock;
+        }
+        public int getQuantity() {
+            return quantity;
+        }
+        public void setQuantity(int quantity) {
+            this.quantity = quantity;
+        }
+        public double getPrice() {
+            return price;
+        }
+        public void setPrice(double price) {
+            this.price = price;
+        }
+    }
+    public class Order {
+        private String customer;
+        private List<Trade> trades = new ArrayList<>();
+
+        public void addTrade(Trade trade){
+            trades.add(trade);
+        }
+        public String getCustomer() {
+            return customer;
+        }
+        public void setCustomer(String customer) {
+            this.customer = customer;
+        }
+        public List<Trade> getTrades() {
+            return trades;
+        }
+        public void setTrades(List<Trade> trades) {
+            this.trades = trades;
+        }
+    }
+
+    {
+        Order order = new Order();
+        order.setCustomer("BigBank");
+        Trade trade1 = new Trade();
+        trade1.setType(Type.BUY);
+
+        Stock stock1 = new Stock();
+        stock1.setSymbol("IBM");
+        stock1.setMarket("NYSE");
+
+        trade1.setStock(stock1);
+        trade1.setPrice(125.00);
+        trade1.setQuantity(80);
+        order.addTrade(trade1);
+
+        Trade trade2 = new Trade();
+        trade2.setType(Type.BUY);
+
+        Stock stock2 = new Stock();
+        stock2.setSymbol("GOOGLE");
+        stock2.setMarket("NASDAQ");
+
+        trade2.setStock(stock2);
+        trade2.setPrice(375.00);
+        trade2.setQuantity(50);
+        order.addTrade(trade2);
+    }
+    /**
+     *     굉장히 장황하다.
+     *
+     *              > 10.3.1 메소드 체인
      */
 }
