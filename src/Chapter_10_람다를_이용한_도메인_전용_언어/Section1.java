@@ -196,5 +196,21 @@ public class Section1 {
      *     굉장히 장황하다.
      *
      *              > 10.3.1 메소드 체인
+     *    메소드 체인을 이용하면 한 개의 메소드 호출 채인으로 거래 주문을 저으이할 수 있다.
      */
+
+
+    {
+        Chapter_10_람다를_이용한_도메인_전용_언어.Order order = MethodChainingOrderBuilder.forCustomer("BigBank")
+                .buy(80).stock("IBM").on("NYSE").at(125.00)
+                .sell(50).stock("Google").on("NASDAQ").at(375.00)
+                .end();
+    }
+    /**
+     * 이와 같이 체이닝을 할 수 있다.
+     *
+     *
+     *              > 10.3.2 중첩된 함수 이용
+     */
+
 }
