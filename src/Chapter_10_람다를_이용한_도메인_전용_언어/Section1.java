@@ -207,10 +207,64 @@ public class Section1 {
                 .end();
     }
     /**
-     * 이와 같이 체이닝을 할 수 있다.
+     * 이와 같이 체이닝을 할 수 있다. 그러나 구현이 복잡하고 특히 빌더를 구현해야하는 것이 문제이다. 상위 수준의 빌더를 하위 수준의 빌더와
+     * 연결할 때 많은 접착 코드가 필요하다. 도메인의 객체의 중첩 구조와 일치하게 들려쓰기를 강제하는 방법도 없다.
      *
      *
      *              > 10.3.2 중첩된 함수 이용
+     *
+     *
+     *    중첩된 함수 DSL 패턴은 다른 함수 안에 함수를 이용해 도메인 모델을 만든다.
      */
+    {
+        Chapter_10_람다를_이용한_도메인_전용_언어.Order order = NestedFunctionOrderBuilder.order("BigBank",
+                NestedFunctionOrderBuilder.buy(80,
+                        NestedFunctionOrderBuilder.stock("IBM",
+                                NestedFunctionOrderBuilder.on("NYSE")),
+                        NestedFunctionOrderBuilder.at(125.00)),
+                NestedFunctionOrderBuilder.sell(50,
+                        NestedFunctionOrderBuilder.stock("GOOGLE",
+                                NestedFunctionOrderBuilder.on("NASDAQ")),
+                        NestedFunctionOrderBuilder.at(375.00))
+        );
+//        static import를 하면 당연히 깔끔해진다.
+    }
+    /**
+     *    하지만 괄호가 많다는 점이 문제이다. 더욱이 인수 목록을 정적 메소드에 넘겨줘야한다는 제약도 있다. 도메인 객체에
+     *    선택 사항 필드가 있다면 인수를 생략할 수도 있으므로 이 가능성도 염두해서 오버로드를 구현해야한다.
+     *    마지막으로 인수의 의미가 이름이 아니라 위치에 의해서 정의된다. 그나마 at(), on() 같은 더미 메소드로 이 문제를 완화시킬 수는 있다.
+     *
+     *
+     *              > 10.3.3 람다 표현식을 이용한 함수 시퀀싱
+     *
+     */
+    {
+        Chapter_10_람다를_이용한_도메인_전용_언어.Order order = LambdaOrderBuilder.order(o -> {
+            o.forCustomer("BigBank");
+            o.buy(t -> {
+                t.quantity(80);
+                t.price(125.00);
+                t.stock(s -> {
+                    s.symbol("IBM");
+                    s.market("NYSE");
+                });
+            });
 
+            o.sell(t -> {
+                t.quantity(50);
+                t.price(375.00);
+                t.stock(s -> {
+                    s.symbol("Google");
+                    s.market("NASDAQ");
+                });
+            });
+        });
+    }
+    /**
+     * 이렇게 람다 표현식을 받아 실행해서 도메인 모델을 만들어낼 수 있다. 이 패턴은 이전 두 가지 DSL 형식의 두 가지 장점을 더한다.
+     * 메소드 체인 패턴처럼 플루언트 방식으로 거래 주문을 정의할 수 있다. 또한 중첩 함수 형식처럼 다양한 람다 표현식의 중첩 수준과
+     * 비슷하게 도메인 객체의 계층 구조를 유지한다.
+     *
+     * 그러나 많은 설정코드, DSL 자체가 람다 표현식에 의한 잡음의 영향을 받는다는 단점이 있다.
+     */
 }
