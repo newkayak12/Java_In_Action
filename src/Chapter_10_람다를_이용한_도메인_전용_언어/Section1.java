@@ -1,5 +1,9 @@
 package Chapter_10_람다를_이용한_도메인_전용_언어;
 
+import Chapter_10_람다를_이용한_도메인_전용_언어.lambda.LambdaOrderBuilder;
+import Chapter_10_람다를_이용한_도메인_전용_언어.mixed.MixedBuilder;
+import Chapter_10_람다를_이용한_도메인_전용_언어.nestedBuilder.NestedFunctionOrderBuilder;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -266,5 +270,40 @@ public class Section1 {
      * 비슷하게 도메인 객체의 계층 구조를 유지한다.
      *
      * 그러나 많은 설정코드, DSL 자체가 람다 표현식에 의한 잡음의 영향을 받는다는 단점이 있다.
+     *
+     *
+     *              > 10.3.4 조합하기
+     */
+    {
+         Chapter_10_람다를_이용한_도메인_전용_언어.Order order = MixedBuilder.forCustomer("BigBank",
+                 MixedBuilder.buy( t -> t.quantity(80).stock("IBM").on("NYSE").at(125.00)),
+                 MixedBuilder.sell( t -> t.quantity(50).stock("GOOGLE").on("NASDAQ").at(125.00)));
+    }
+    /**
+     *
+     *   이렇게 세 가지 패턴을 혼용해 가독성있는 DSL을 만들 수 있다.
+     *
+     *
+     *              > 10.4 Java8의 DSl
+     *   지금까지의 내용을 요약하면 이렇다.
+     *
+     *   *** DSL 패턴의 장점과 단점
+     *
+     *      패턴 이름                   장점                                      단점
+     *      메소드 체인      1. 메소드 이름이 키워드 인수 역할을 한다.        1. 구현이 장황하다.
+     *                    2. 선택형 파라미터와 잘 동작한다.              2. 빌드를 연결하는 접착 코드가 필요하다.
+     *                    3. DSL 사용자가 정해진 순서로 메소드를          3.들여쓰기 규칙으로만 도메인 객체 계층을 정의한다.
+     *                    호출하도록 강제할 수 있다.
+     *                    4. 정적 메소드를 최소화하거나 없앨 수 있다.
+     *                    5. 문법적 잡음을 최소화한다.
+     *
+     *      중첩 함수       1. 구현의 장황함을 줄일 수 있다.                1. 정적 메소드의 사용이 빈번
+     *                    2. 함수 중첩으로 도메인 객체 계층을 반영          2. 이름이 아닌 위치로 인수를 정의한다.
+     *                                                             3. 선택형 파라미터를 처리할 떄 메소드 오버로드가 필요하다.
+     *
+     *      람다를 이용한    1. 선택형 파라미터와 잘 동작                   1. 구현이 장황하다.
+     *      함수 시퀀싱     2. 정적 메소드 최소화/ 없앨 수 있다.            2. 람다 표현식으로 문법적 잡음이 DSL에 존재한다.
+     *                   3. 람다 중첩으로 도메인 객체 계층을 반영한다.
+     *                   4. 빌더의 접착 코드가 없다.
      */
 }
