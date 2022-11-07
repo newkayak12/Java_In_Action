@@ -280,4 +280,7 @@ public class Section1 {
     public int readDurationOptional ( Properties props, String name ) {
         return Optional.ofNullable(props.getProperty("name")).flatMap(i->stringToInt(i)).filter(i -> i > 0).orElseGet(() -> 0);
     }
+    /**
+     * 와 같이 변경할 수 있다.
+     */
 }
