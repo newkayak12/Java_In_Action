@@ -1,7 +1,10 @@
 package Chapter_12_새로운_날짜와_시간_API;
 
+import java.sql.Date;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.*;
+import java.util.Locale;
 
 public class Section1 {
     /**
@@ -143,5 +146,33 @@ public class Section1 {
      *
      *                  > 12.2.2 날짜와 시간 객체 출력 파싱
      *     날짜와 시간 관련 작업에서 포매팅, 파싱은 서로 떼려야 뗄 수 없다. 심지어 포매팅과 파싱 전용 패키지인 java.time.format이 추가될 정도이다.
+     *     이 패키지에서 가장 중요한 클래스는 DateTimeFormatter이다. 정적 팩토리 메소드와 상수를 이용해서 손쉽게 포매터를 만들 수 있다.
+     *     DateTimeFormatter 클래스는 BASIC_ISO_DATE와 ISO_LOCAL_DATE 등의 상수를 미리 정의 하고 있다. DateTimeFormatter를 이용해서
+     *     날짜나 시간을 특정 형식의 문자열로 만들 수도 있다.
      */
+    LocalDate date11 = LocalDate.of(2014, 3, 18);
+    String s1 = date11.format(DateTimeFormatter.BASIC_ISO_DATE);
+    String s2 = date11.format(DateTimeFormatter.ISO_LOCAL_DATE);
+    /**
+     *      반대로 날짜나 시간을 표현하는 문자열을 파싱해서 날짜 객체를 다시 만들 수 있다. 날짜와 시간 API에서 특정 시점이나 간격을 표현하는 모든 클래스의
+     *      팩토리 메소드 parse를 이용해서 문자열을 날짜 객체로 만들 수 있다.
+     */
+    LocalDate date12 = LocalDate.parse("20140318", DateTimeFormatter.BASIC_ISO_DATE);
+    LocalDate date13 = LocalDate.parse("2014-03-18", DateTimeFormatter.ISO_LOCAL_DATE);
+    /**
+     *      기존의 java.util.DateFormat 클래스와 달리 모든 DateTimeFormatter는 쓰레드에서 안전하게 사용할 수 있는 클래스다. 또한 다음 예제처럼
+     *      특정 패턴으로 포매터를 만들 수 있는 정적 팩토리 메소드도 제공한다.
+     */
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    LocalDate date14 = LocalDate.of(2014, 3, 18);
+    String formattedDate = date14.format(formatter);
+    LocalDate date15 = LocalDate.parse(formattedDate, formatter);
+    /**
+     *      LocalDate의 format 메소드는 요청 패턴에 해당하는 문자열을 생성한다. 그리고 정적 메소드 parse는 같은 포매터를 적용해서 생성된 문자열을
+     *      파싱함으로써 다시 날짜를 생성한다.
+     */
+    DateTimeFormatter italianFormatter = DateTimeFormatter.ofPattern("d. MMMM yyyy", Locale.ITALIAN);
+    LocalDate date16 = LocalDate.of(2014,11,18);
+    String formattedDate2 = date16.format(italianFormatter);
+    LocalDate date17 = LocalDate.parse(formattedDate2, italianFormatter);
 }
