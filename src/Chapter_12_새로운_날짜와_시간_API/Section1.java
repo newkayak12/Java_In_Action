@@ -3,6 +3,7 @@ package Chapter_12_새로운_날짜와_시간_API;
 import java.sql.Date;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.*;
 import java.util.Locale;
 
@@ -175,4 +176,46 @@ public class Section1 {
     LocalDate date16 = LocalDate.of(2014,11,18);
     String formattedDate2 = date16.format(italianFormatter);
     LocalDate date17 = LocalDate.parse(formattedDate2, italianFormatter);
+    /**
+     *      DateTimeFormatterBuilder로 복잡한 포매터를 정의해서 조금 더 세부적으로 포매터를 제어할 수 있다. 즉, DateTimeFormatterBuilder
+     *      클래스로 대소문자를 구분하는 파싱, 관대한 규칙을 적용하는 파싱, 패딩, 포매터 등 선택사항을 활용할 수 있다.
+     */
+    DateTimeFormatter italianFormat = new DateTimeFormatterBuilder()
+            .appendText(ChronoField.DAY_OF_MONTH)
+            .appendLiteral(". ")
+            .appendText(ChronoField.MONTH_OF_YEAR)
+            .appendLiteral(" ")
+            .appendText(ChronoField.YEAR)
+            .parseCaseInsensitive()
+            .toFormatter(Locale.ITALIAN);
+    /**
+     *
+     *              > 12.3다양한 시간대와 캘린더 활용 방법
+     *   지금까지 살펴본 모든 클래스는 시간대와 관련된 정보가 없었다. 새로운 날짜와 시간 API의 편리함 중 하나는 시간대를 간단하게 처리할 수 있다는 점이다.
+     *   기존의 java.util.ZoneID 클래스가 새롭게 등장했다. 새로운 클래스를 이용하면 서머타임과 같은 복잡한 사항이 자동으로 처리된다. 날짜와 시간 API
+     *   에서 제공하는 다른 클래스와 마찬가지로 ZoneId는 불변 클래스이다.
+     *
+     *
+     *              > 12.3.1 시간대 사용하기
+     *   표준 시간이 같은 지역을 묶어서 시간대 규칙 집합을 정의한다. ZoneRules 클래스에는 40개 정도의 시간대가 있다. ZoneId의 getRules를 이용해서
+     *   해당 시간대의 규정을 획득할 수 있다.
+     *
+     *      ZoneId romeZone = ZoneId.of("Europe/Rome");
+     */
+    LocalDate ldate = LocalDate.of(2014, Month.APRIL, 18);
+    ZoneId romeZone = ZoneId.of("Europe/Rome");
+    ZonedDateTime zdt1 = date.atStartOfDay(romeZone);
+    LocalDateTime ldt = LocalDateTime.of(2014, Month.APRIL, 18, 13, 49);
+    ZonedDateTime zdt2 = ldt.atZone(romeZone);
+    Instant instant = Instant.now();
+    ZonedDateTime zdt3 = instant.atZone(romeZone);
+    /**
+     *      2014 - 05 - 14 T 15 : 33 : 04.941 +01:00[Europe/London]
+     *      |--LocalDate --|--LocalTime--|
+     *      |------ LocalDateTime ------|---- ZoneId -------------|
+     *      |-----------------ZonedDateTime-----------------------|
+     *
+     *
+     *
+     */
 }
