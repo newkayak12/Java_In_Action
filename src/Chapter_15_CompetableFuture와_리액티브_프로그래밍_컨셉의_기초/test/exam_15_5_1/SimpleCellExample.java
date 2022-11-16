@@ -13,17 +13,34 @@ public class SimpleCellExample {
 
         System.out.println("________________________\n");
 
-        ArithmeticCell a3 = new ArithmeticCell("C3");
-        SimpleCell2 a2 = new SimpleCell2("C2");
-        SimpleCell2 a1 = new SimpleCell2("C1");
+        ArithmeticCell a3 = new ArithmeticCell("A3");
+        SimpleCell a2 = new SimpleCell("A2");
+        SimpleCell a1 = new SimpleCell("A1");
         a1.subscribe(a3::setRight);
         a2.subscribe(a3::setLeft);
         a1.onNext(10);
         a2.onNext(20);
         a1.onNext(15);
 
+/*********************************************************************************************************************/
 
+        a1 = new SimpleCell("A1");
+        a2 = new SimpleCell("A2");
+        a3 = new ArithmeticCell("A3");
+        SimpleCell a4 = new SimpleCell("A4");
+        ArithmeticCell a5 = new ArithmeticCell("A5");
+
+        a1.subscribe(a3::setRight);
+        a2.subscribe(a3::setLeft);
+        a3.subscribe(a5::setLeft);
+        a4.subscribe(a5::setRight);
+
+        a1.onNext(10);
+        a2.onNext(20);
+        a1.onNext(15);
+        a4.onNext(1);
+        a4.onNext(3);
+
+        
     }
-
-
 }

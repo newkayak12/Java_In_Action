@@ -366,7 +366,9 @@ public class Section1 {
          *      효율성은 높이고 데드락은 피하는 최상의 해결책을 구현할 수 있다.
          *
          *
-         *                      > 15.5 발행-구독(pub-sub) 그리고 리액티브 프로그래밍
+         *      TODO <FLOW 어떻게 구현했는지 찾아보기>
+         *
+         *                      > 15.5 발행-구독(pub-sub) 그리고 리액티브 프로그래밍 **
          *      Future와 CompletableFuture은 독립적 실행과 병렬성이라는 정식적 모델에 기반한다. 연산이 끝나면 get()으로 Future의 결과를 얻을
          *      수 있다. 따라서 Future는 한 번만 실행해 결과를 제공한다.
          *
@@ -391,6 +393,71 @@ public class Section1 {
          *
          *     두 정보 소스로부터 발생하는 이벤트를 합쳐서 다른 구독자가 볼 수 있도록 발행하는 예를 통해서 pub-sub 특징을 확인할 수 있다. 사실 이 기능은
          *     수식을 포함하는 스프레드 시트에서 흔히 제공하는 동작이다. "=C1+C2" 라는 C3를 만든다. C1, C2 중 하나가 변경되면 새로운 값이 반영된다.
+         *
+         *              exam_15_5_1.SimpleCellExam.java
+         *
+         *     결과를 통해서 C1의 값이 갱신되면 C3도 갱신한다는 것을 알 수 있다. 발행자-구독자 상호작용의 멋진 점은 발행자 구독자의 그래프를 설정할 수 있다.
+         *
+         *               exam_15_5_1.SimpleCellExam.java /********* 아래 부분
+         *
+         *          {
+         *                  데이터가 발행자(생산자)에서 구독자(소비자)로 흐름에 착안해 개발자는 이를 업스트림/ 다운스트림이라고 부른다.
+         *                  위 예제에서 데이터 newValue는 업스트림 onNext() 메소드로 전달되고 notifyAllSubscribers() 호출을 통해
+         *                  다운스트림 onNext() 호출로 전달된다.
+         *          }
+         *
+         *
+         *     우선, 실제로 flow를 이용하려면 onNext() 이벤트 외에 onError, onComplete와 같은 메소드를 통해 데이터 흐름에서 예외가 발생하거나
+         *     데이터 흐름이 종료되었음을 알 수 있어야한다. 자바 9 플로 API의 Subscriber에서는 실제 onError, onComplete을 지원한다. 기존의
+         *     옵저버 패턴에 비해 새로워진 API 프로토콜이 위와 같은 메소드 덕분에 강력해졌다.
+         *     쓰레드 활용에서 onError, onComplete은 필수이다. flow를 사용할 때 빠른 속도로 발생하는 이벤트를 아무 문제 없이 처리할 수 있을까?
+         *     마찬가지로 모든 SMS 메시지를 폰으로 제공하는 발행자에 가입하는 상황을 생각해보자. 처음에 약간의 SMS 메시지가 있는 새폰에서는 가입이 잘
+         *     동작할 수 있지만 매 초마다 수천 개의 메시지가 onNext()로 전달된다면 어떻게 될까? 이런 상황을 압력이라고 한다.
+         *     이런 상황에서는 출구로 추가될 이벤트의 수를 제한하는 역압력이 필요하다. 자바 9 플로 API 에서는 발생자가 무한의 속도로 아이템을 방출하는 대신
+         *     요청을 했을 때만 다음 아이템을 보내도록 하는 메소드(Subscription 인터페이스에 포함)를 제공한다. (push가 아닌 pull 모델)
+         *
+         *
+         *
+         *                      > 15.5.2 역압력
+         *     Subscriber 객체(onNext, onError, onComplete 메소드를 포함)를 어떻게 Publisher에 게 전달해 발행자가 필요한 메소드를 호출할 수
+         *     있는지 확인했다. 이 객체는 Publisher에서 Subscriber로 정보를 전달한다. 정보의 흐름 속도를 역압력(흐름 제어)으로 제어 즉, Subscriber
+         *     에서 Publisher로 정보를 요청해야할 필요가 있을 수 있다. Publisher는 여러 Subscriber를 가지고 있으므로 역압력 요청이 한 연결에만
+         *     영향을 미치는 것이 문제가 될 수 있다. 이러한 문제를 자바 9 플로 API의 Subscriber 인터페이스는 네 번쨰 메소드를 포함한다.
+         *
+         *              void onSubscribe(Subscription subscription);
+         *
+         *      Publisher와 Subscriber 사이에 채널이 연결되면 첫 이벤트로 이 메소드가 호출된다.
+         *
+         *
+         *              interface Subscription {
+         *                  void cancel{};
+         *                  void request (long n);
+         *              }
+         *
+         *       콜백을 통한 역방향 소통에 대해서 주목하자. Publisher는 Subscription 객체를 만들어 Subscriber로 전달하면 Subscriber는 이를
+         *       이용해서 Publisher로 정보를 보낼 수 있다.
+         *
+         *
+         *                      > 15.5.3 실제 역압력의 간단한 형태
+         *       한 번의 한 개의 이벤트를 처리하도록 발행-구독 연결을 구성하려면 아래의 작업이 필요하다.
+         *
+         *              1. Subscriber가 OnSubscribe로 전달된 Subscription 객체를 Subscription 같은 필드에 로컬로 저장한다.
+         *              2. Subscriber가 수많은 이벤트를 받지 않도록 onSubscribe, onNext, onError의 마지막 동작에 channel.request(1)
+         *              을 추가해서 오직 한 이벤트만 요청한다.
+         *              3. 요청을 보낸 채널에면 onNext, onError 이벤트를 보내도록 Publisher의 notifyAllSubscribers 코드를 바꾼다.
+         *              (보통 여러 Subscriber가 자신만의 속도를 유지할 수 있도록 Publisher는 새 Subscription을 만들어 각 Subscriber와
+         *              연결한다.)
+         *
+         *        구현이 간단해 보이지만 역압력을 구현하려면 여러가지 장단점을 생각해야한다.
+         *
+         *              1. 여러 Subscriber가 있을 때 이벤트를 가장 느린 속도로 보낼 것인가 아니면 각 Subscriber에게 보내지 않은 데이터를
+         *              저장한 별도의 큐를 가질 것인가.
+         *              2. 큐가 비대해지면 어떻게 할 것인가.
+         *              3. Subscriber가 준비가 안됐다면 큐의 데이터를 폐기할 것인가
+         *
+         *       이는 데이터 성격에 달라진다. 온도 데이터가 증발하는 것은 그럴 수 있지만 은행 계좌의 돈이 사라지는 것은 큰 일이다. 당김 기반의 리액티브
+         *       역압력이라는 개념이 있는데 이 기법에서는 Subscriber가 Publisher로부터 요청을 당긴다는 의미에서 리액티브 당김 기반이라고 불린다.
+         *       결과적으로 이런 방식으로 역압력을 구현할 수 있다.
          *
          */
 

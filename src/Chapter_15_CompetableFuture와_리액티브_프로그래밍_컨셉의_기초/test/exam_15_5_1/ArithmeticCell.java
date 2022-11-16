@@ -1,6 +1,6 @@
 package Chapter_15_CompetableFuture와_리액티브_프로그래밍_컨셉의_기초.test.exam_15_5_1;
 
-public class ArithmeticCell extends SimpleCell2 {
+public class ArithmeticCell extends SimpleCell {
     private int left;
     private int right;
 

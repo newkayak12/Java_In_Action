@@ -3,6 +3,7 @@ package Chapter_15_CompetableFuture와_리액티브_프로그래밍_컨셉의_�
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Flow;
+import java.util.function.Consumer;
 
 public class SimpleCell implements Flow.Publisher<Integer>, Flow.Subscriber<Integer> {
     public int value = 0;
@@ -13,6 +14,28 @@ public class SimpleCell implements Flow.Publisher<Integer>, Flow.Subscriber<Inte
         this.name = name;
     }
 
+    public void subscribe(Consumer<? super Integer> onNext) {
+        subscribers.add(new Flow.Subscriber<Integer>() {
+
+            @Override
+            public void onComplete() {
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                t.printStackTrace();
+            }
+
+            @Override
+            public void onNext(Integer val) {
+                onNext.accept(val);
+            }
+
+            @Override
+            public void onSubscribe(Flow.Subscription s) {
+            }
+        });
+    }
 
     @Override
     public void subscribe(Flow.Subscriber<? super Integer> subscriber) {
