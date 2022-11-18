@@ -1,6 +1,7 @@
 package Chapter_16_CompletableFuture_안정적_비동기_프로그래밍;
 
 import Chapter_16_CompletableFuture_안정적_비동기_프로그래밍.test.exam_16_2.Shop;
+import Chapter_16_CompletableFuture_안정적_비동기_프로그래밍.test.exam_16_2.Shops;
 
 import java.util.concurrent.*;
 
@@ -132,7 +133,7 @@ public class Section1 {
 
         long retrievalTime = ((System.nanoTime() - start) / 1_000_000);
         System.out.println("Price returned after " + retrievalTime + " ms");
-    }
+
 
     /**
      *       위 코드에서 확인할 수 있는 것처럼 클라이언트는 특정 제품의 가격 정보를 상점에 요청하고 상점은 비동기 API를 제공하므로 즉시 Future을
@@ -156,9 +157,254 @@ public class Section1 {
      *
      *
      *                      > 팩토리 메소드 supplyAsync로 CompletableFuture 만들기
+     *      지금까지 CompletableFuture을 직접 만들었다. 하지만 조금 더 간단하게 CompletableFuture을 만드는 방법이 있다. 예를 들어 getPriceAsync
+     *      를 더 간단하게 만들 수 있다.
+     *
+     *              test.exam_16_2.Shop.getPriceAsyncLambda()
+     *
+     *      supplyAsync 메소드는 supplier를 인수로 받아서 CompletableFuture를 반환한다. CompletableFuture는 Supplier를 실행해서 비동기
+     *      적으로 결과를 결과를 생성한다. ForkJoinPool의 Executor 중 하나가 Supplier를 실행할 것이다. 하지만 두 번쨰 인수를 받는 오버로드 버전의
+     *      supplyAsync 메소드를 이용해서 다른 Executor를 지정할 수 있다. 결국 모든 다른 CompletableFuture의 팩토리 메소드에 Executor를
+     *      선택적으로 전달할 수 있다.
+     *
+     *      지금부터는 Shop 클래스에서 구현할 API를 제어할 권한이 없다는 설정 아래서 모든 API는 동기 방식의 블록 메소드라고 가정할 것이다. 실제로
+     *      몇몇 서비스에서 제공하는 HTTP API는 이와 같은 방식으로 동작한다. 블록 메소드를 사용할 수밖에 없는 상황에서 비동기적으로 블록을 최소한으로 해서
+     *      애플리케이션의 성능을 높일 방법을 강구해보자.
+     *
+     *
+     *                      > 16.3 비블록 코드 만들기
+     *
+     *      우선 아래와 같은 상점 리스트가 있다고 가정해보자.
+     *
+     *              test.exam_16_2.Shops
+     *
+     *      그리고 제품명을 입력하면 상점 이름과 문자열 정보를 제공하는 List를 반환하는 메소드를 구현해야한다.
+     *
+     *              test.exam_16_2.Shops.findPrices()
+     *
+     *      이러면 원하는 제품의 가격을 검색할 수 있다. 또한 요소를 찾는 시간도 확인할 수 있다.
+     */
+    System.out.println("\n\nSingle ----------");
+    long startTime = System.nanoTime();
+    System.out.println(new Shops().findPrices("myPhone27S"));
+    long durationTime = ((System.nanoTime() - startTime) / 1_000_000);
+    System.out.println("Done in "+ durationTime + " ms");
+    /**
+     *
+     *      네 개의 상점을 검색하는 동안 대기 시간이 1초가 있으므로 결과적으로 4초 이상의 시간이 걸린다.
+     *
+     *
+     *                  > 16.3.1 병렬 스트림으로 병렬화 하기
+     *
+     *                  test.exam_16_2.Shops.findPricesParallelize()
+     *
+     *      위와 같이 코드를 수정하고 실행해보자.
+     */
+    System.out.println("\n\nParallelize ----------");
+    startTime = System.nanoTime();
+    System.out.println(new Shops().findPricesParallelize("myPhone27S"));
+    durationTime = ((System.nanoTime() - startTime) / 1_000_000);
+    System.out.println("Done in "+ durationTime + " ms");
+    /**
+     *      이러면 병렬로 진행되므로 1초 남짓으로 줄어든다. 이를 더 개선할 방법은 없을까? CompletableFuture 기능을 활용해서 findPrices 메소드의
+     *      동기 호출을 비동기로 바꿔보자.
+     *
+     *
+     *                  > 16.3.2 CompletableFuture로 비동기 호출 구현하기
+     *      팩토리 메소드 supplyAsync로 CompletableFuture을 만들 수 있다. 이를 활용해보자.
+     *
+     *
+     *                  test.exam_16_2.Shops.findPricesCompletableFuture()
+     *
+     *      위 코드로 CompletableFuture를 포함하는 리스트 List<CompletableFuture<String>>를 얻을 수 있다. 리스트의 CompletableFuture는
+     *      각각 계산 결과가 끝난 상점의 이름 문자열을 포함한다. 우리가 재구현한 findPrices 메소드의 반환 형식은 List<String>이므로 모든 CompleteFuture
+     *      의 동작이 완료되고 결과를 추출한 다음에 리스트를 반환해야한다.
+     *
+     *      두 번째 map 연산을 List<CompletableFuture<String>>에 적용할 수 있다. 즉, 리스트의 모든 CompletableFuture에 join을 호출해서
+     *      모든 동작이 끝나기를 기다린다. CompletableFuture 클래스의 join 메소드는 Future 인터페스의 get 메소드와 같은 의미를 갖는다. 다안
+     *      join은 아무 예외도 발생시키지 않는다는 점이 다르다. 따라서 두 번쨰 map의 람다 표현식을 try/catch 감쌀 필요가 없다.
+     *
+     *      여기서 주목할 것은 map 연산을 하나의 스트림 처리 파이프라인으로 처리하지 않고 두 개의 스트림 파이프라인으로 처리했다는 점이다. 스트림 연산은
+     *      lazy 특성이 있으므로 하나의 파이프라인으로 연산을 처리했다면 모든 가격 정보 요청 동작이 동기적, 순차적으로 이뤄지게 된다.CompletableFuture로
+     *      각 상점의 정보를 요청할 떄 기존 요청 작업이 완료되어야 join이 결과를 반환하면서 다음 상점으로 요청할 수 있기 때문이다. 이러면 이전 요청의
+     *      처리가 완전히 끝난 다음에 새로 만든 CompletableFuture가 처리된다.
+     *
+     *      반면 map 연산을 둘로 나누면 CompletableFuture를 리스트로 모은 다음에 다른 작업과 독립적으로 각자의 작업을 수행하는 모습을 보여준다.
+     */
+    System.out.println("\n\nCompletableFuture ----------");
+    startTime = System.nanoTime();
+    System.out.println(new Shops().findPriceCompletableFuture("myPhone27S"));
+    durationTime = ((System.nanoTime() - startTime) / 1_000_000);
+    System.out.println("Done in "+ durationTime + " ms");
+    /**
+     *      결과를 확인하면 많이 줄었지만 만족할 정도는 아니다.
+     *
+     *
+     *                  > 16.3.3 더 확장성이 좋은 해결 방법
+     *      병렬 스트림 버전의 코드는 네 개의 상점에 하나의 쓰레드를 할당해서 네 개의 작업을 병렬로 수행하면서 검색 시간을 최소화 할 수 있었다. 만약
+     *      다섯 개의 상점으로 늘어난다면 어떻게 될까? 순차에서는 1초 정도 추가로 딜레이 된다. 병렬 스트림 버전은 (4 쓰레드라는 가정 아래)
+     *      네 개 중 하나가 끝다면 그 다음 다섯 번째를 찾는다.
+     *
+     *      CompletableFuture는 병렬 스트림보다 약간 더 빠르다. 수를 늘려도 RunTime.getRuntime().availableProcessors()가 반환하는
+     *      쓰레드 수에 기반해서 비슷한 결과를 낸다. 그러나 CompletableFuture는 병렬 스트림 버전에 비해 작업에 이용할 수 있는 다양한 Executor를
+     *      지정할 수 있다는 장점이 있다. 따라서 Executor로  쓰레드 풀의 크기를 조절하는 등 애플리케이션에 맞는 최적화된 설정을 만들 수 있다.
+     *
+     *
+     *                  > 16.3.4 커스텀 Executor 사용하기
+     *      우리 애플리케이션이 실제로 필요한 작업량을 고려한 풀에서 관리하는 쓰레드 수에 맞게 Executor를 만들 수 있으면 좋을 것이다. 풀에서 관리하는
+     *      쓰레드 수를 결정하는 방법은 무엇일까?
+     *
+     *
+     *                  {
+     *                                              쓰레드 풀 크기 조절
+     *                       쓰레드 풀이 너무 크면 CPU, 메모리 자원을 서로 경쟁하느라 시간을 낭비할 수 있다. 반면 쓰레드 풀이 너무 작으면 CPU의
+     *                       일부 코어는 활용되지 않을 수 있다. 브라이언 게츠는 아래의 공식으로 CPU 활용 비율을 계산할 수 있다고 제한한다.
+     *
+     *
+     *                                          N(thread) = N(cpu) * U(cpu) * ( 1 + W/C)
+     *
+     *                            * N(cpu): Runtime.getRuntime().availableProcessors()가 반환하는 코어 수
+     *                            * U(cpu): 0 과 1 사이의 값을 갖는 CPU 활용 비율
+     *                            * W/C는 대기 시간과 계산 시간의 비율
+     *
+     *                  }
+     *
+     *      우리 애플리케이션은 상점의 응답을 대략 99퍼센트의 시간만큼 기다리므로 W/C 비율을 100으로 간주할 수 있다. 즉, 대상 CPU 활용률이 100퍼센트라면
+     *      400쓰레드를 갖는 풀을 만들어야 함을 의미한다. 하지만 상점 수보다 많은 쓰레드를 가지고 있어봐야 사용할 가능성이 전혀 없으므로 상점 수보다 많은
+     *      쓰레드를 갖는 것은 낭비이다. 따라서 한 상점에 하나의 쓰레드가 할당될 수 있도록 Executor를 설정한다. 쓰레드 수가 너무 많으면 오히려 서버가
+     *      크래시될 수 있다. 하나의 Executor에서 사용할 쓰레드의 최대 개수는 100이하로 하는 것이 좋다.
+     *
+     *
+     *          test.exam_16_2.Shops.ExecutorService
+     *
+     *      우리가 만드는 풀은 데몬 쓰레드를 포함한다. 자바에서 일반 쓰레드가 실행 중이면 프로그램이 종료되지 않는다. 이벤트를 한없이 기다리면서 종료되지
+     *      않는 일반 쓰레드가 있다면 문제가 될 수 있다. 반면 데몬 쓰레드는 자바 프로그램이 종료될 때 강제로 실행이 종료될 수 있다. 두 쓰레드의 성능은
+     *      같다. 이제 새로운 ExecutorService를 팩토리 메소드  supplyAsync의 두 번쨰 인수로 전달할 수 있다.
+     *
+     *      이렇게 하면 애플리케이션의 특성에 맞는 Executor를 만들어 사용할 수 있다.
+     *
+     *
+     *
+     *              {
+     *
+     *                                                  스트림 병렬화와 CompletableFuture 병렬화
+     *
+     *                    지금까지 컬렉션 계산을 병렬화하는 두 가지 방법을 봤다 하나는 병렬 스트림으로 변환해서 컬렉션을 처리하는 방법이고 다른 하나는
+     *                    컬렉션을 반복하면서 CompletableFuture 내부 연산으로 만드는 방법이다. CompletableFuture를 이용하면 전체적인 계산이
+     *                    블록되지 않도록 쓰레드 풀의 크기를 조절할 수 있다. 아래를 참고하면 어떤 병렬화 기법을 사용할 것인지 선택하는 데 도움이 된다.
+     *
+     *                      1. I/O가 포함되지 않은 계산 중심의 동작을 실행할 때는 스트림 인터페이스가 가장 구현하기 간단하며 효율적일 수 있다.
+     *                      (모든 쓰레드가 계산 작업을 수행하는 상황에서 프로세서 코어 수 이상의 쓰레드를 가질 필요가 없어진다.)
+     *
+     *                      2. 반면 작업이 I/O를 기다리는 작업을 병렬로 실행할 떄는 CompletableFuture가 더 많은 유연성을 제공하며 대기/시간
+     *                      (W/C)의 비율에 적합한 쓰레드 수를 설정할 수 있다. 특히 스트림의 lazy 특성 떄문에 스트림에서 I/O를 실제로 언제 처리할지
+     *                      예측 하기 어렵다는 문제도 있다.
+     *              }
+     *
+     *
+     *
+     *                      > 16.4 비동기 작업 파이프 라인 만들기(선언형으로)
+     *       우리와 계약을 맺은 모든 상점이 하나의 할인 서비스를 제공하기로 했다고 가정하자. 할인 서비스에서는 서로 다른 할인율을 제공하는 다섯 가지 코드를
+     *       제공한다.
+     *
+     *              test.exam_16_4.Discount.Code
+     *
+     *       또한 상점에서 getPrice 메소드의 결과 형식도 바꾸기로 했다. 이제 getPrice는 ShopName:price:DiscountCode 형식의 문자열을 반환한다.
+     *
+     *              test.exam_16_2.Shops.getPriceDiscount()
+     *
+     *
+     *
+     *                      > 16.4.1 할인 서비스 구현
+     *        이제 우리 최저 가격 검색 애플리케이션은 여러 상점에서 가격 정보를 얻어오고, 결과 문자열을 파싱하고, 할인 서버에 질의를 보낼 준비가 되었다.
+     *        할인 서버에서 할인율을 확인해서 최종 가격을 계산할 수 있다. 상점에서 제공한 문자열 파싱은 Quote 클래스로 캡슐화할 수 있다.
+     *
+     *              test.exam_16_4.Quote
+     *
+     *        상점에서 얻은 문자열을 정적 팩토리 메소드 parse로 넘기면 상점이름, 할인전 가격, 할인된 가격을 포함하는 Quote가  생성된다. 그러면 아래와 같이
+     *        할인된 가격 문자열을 반환하는 applyDiscount가 제공된다.
+     *
+     *
+     *                      > 16.4.2 할인 서비스 사용
+     *
+     *              test.exam_16_2.Shops.findPriceDiscount()
+     *        세 개의 map 연산을 상점 스트림에 파이프라인으로 연결해서 원하는 결과를 얻었다.
+     *
+     *          1. 첫 번째 연산에서는 각 상점을 요청한 제품의 가격과 할인 코드로 변환한다.
+     *          2. 두 번째 연산에서는 이들 문자열을 파싱해서 Quote 객체로 만든다.
+     *          3. 세 번쨰 연산에서는 원격 Discount 서비스에 접근해서 최종 가격을 계산하고 가격에 대응하는 상점 이름을 포함하는 문자열을 반환한다.
+     *
      *
      *
      */
+    System.out.println("\n\nDiscount ----------");
+    startTime = System.nanoTime();
+    System.out.println(new Shops().findPriceDiscount("myPhone27S"));
+    durationTime = ((System.nanoTime() - startTime) / 1_000_000);
+    System.out.println("Done in "+ durationTime + " ms");
+    /**
+     *      예상대로 순차로 상점에 요청하느라 4초가 소모됐고 각 상점에서 반환한 가격 정보에 할인 코드를 적용할 수 있도록 할인 서비스가 적용되면서 4초가
+     *      소모됐다. 병렬 스트림을 사용하면 성능을 쉽게 개선할 수 있다는 것은 이미 확인했다. 하지만 병렬 스트림은 쓰레드 풀의 크기가 고정되어 있어서
+     *      상점 수가 늘어났을 때, 검색 대상이 확장됐을 때 유연하게 대응할 수 없다는 사실도 확인했다. 따라서 CompletableFuture에서 수행하는
+     *      태스크를 설정할 수 있는 커스텀 Executor를 정의함으로써 자원 사용률을 극대화할 수 있다.
+     *
+     *
+     *
+     *                      > 16.4.3 동기 작업과 비동기 작업 조합하기
+     *
+     *              test.exam_16_2.Shops.findPriceCombineBlockAndNoneBlock()
+     *
+     *      세 가지 변환 과정이 있다. 다만 이번에는 CompletableFuture 클래스를 이용해서 비동기로 만들어야 한다.
+     *
+     *          1. 가격 정보 얻기
+     *          첫 번째 연산은 팩토리 메소드 supplyAsync에 람다 표현식을 전달해서 비동기적으로 상점에서 정보를 조회했다. 첫 번째 변환의
+     *          결과는 Stream<CompletableFuture<String>>이다. 각 CompletableFuture는 작업이 끝났을 떄 해당 상점에서 반환하는 문자열
+     *          정보를 포함한다.
+     *
+     *          2. Quote 파싱
+     *          두 번째는 첫 번쨰 결과 문자열을 Quote로 변환한다. 파싱 동작에서는 원격 서비스나  I/O가 없으므로 즉시 지연 없이 동작을 할 수 있다. 따라서
+     *          첫 번쨰 과정에서 생성된 CompletableFuture에 thenApply 메소드를 호출한 다음에 문자열을 Quote 인스턴스로 변환하는 Future으로
+     *          전달한다.
+     *          thenApply 메소드는 CompletableFuture가 끝날 때까지 블록하지 않는다는 점을 주의해야한다. 즉, CompletableFuture가 동작을
+     *          완전히 완료한 다음 thenApply 메소드로 전달된 람다 표현식을 적용할 수 있다. 따라서 CompletableFuture<String>을 Completable<Quote>
+     *          로 변환할 것이다. 이는 마치 CompletableFuture의 결과물로 무엇을 할지 지정하는 것과 같다. 스트림 파이프라인에도 같은 기능이 존재했다.
+     *
+     *          3. CompletableFuture를 조합해서 할인된 가격 계산하기
+     *          세 번째 map 연산에서는 상점에서 받은 할인전 가격에 Discount로 할인률을 적용해야한다. 람다 표현식으로 이 동작을 팩토리 supplyAsync에
+     *          전달할 수 있다. 그러면 다른 CompletableFuture가 반환된다. 결국 두 가지 CompletableFuture로 이뤄진 연쇄적으로 수행되는 두 개의
+     *          비동기 동작을 만들 수 있다.
+     *
+     *              1. 상점에서 가격 정보 얻어와 Quote로 변환
+     *              2. 변환된 Quote를 Discount 서비스로 전달해서 할인된 최종 가격 획득하기
+     *
+     *          자바 8의 CompletableFuture API는 이와 같이 두 비동기 연산을 파이프라인으로 만들수 있도록 thenCompose 메소드를 제공한다.
+     *          thenCompose 메소드는 첫 번째 연산의 결과를 두 번째 연산으로 전달한다. 즉, 첫 번째 CompletableFuture에 thenCompose  메소드를
+     *          호출하고 Function에 넘겨주는 식으로 두 CompletableFuture를 조합할 수 있다. Function은 첫 번쨰 CompletableFunction
+     *          반환 결과를 인수로 받고 두 번쨰 CompletableFuture를 반환하는데, 두 번쨰 CompletableFuture는 첫 번째 CompletableFuture의
+     *          결과를 계산의 입력으로 사용한다. 따라서 Future가 여러 상점에서 Quote를 얻는 동안 메인 쓰레드는 UI 이벤트에 반응하는 등 유용한
+     *          작업을 수행할 수 있다.
+     *
+     *          세 개의 map 연산 결과 스트림의 요소를 리스트로 수집하면 List<CompletableFuture<String>> 형식의 자료를 얻을 수 있다.
+     *          마지막으로 CompletableFuture가 완료되기를 기다렸다가 join으로 값을 추출할 수 있다.
+     *
+     *          CompletableFuture 클래스의 다른 메소드처럼 thenCompose 메소드도 Async로 끝나는 메소드가 존재한다. Async로 끝나지 않은 메소드
+     *          는 이전 작업을 수행한 쓰레드와 같은 쓰레드에서 작업을 실행함을 의미하며 Async로 끝나는 메소드는 다음 작업이 다른 쓰레드에서 실행되도록
+     *          쓰레드 풀로 작업을 제출한다.
+     *          여기서 두 번쨰 CompletableFuture의 결과는 첫 번쨰 CompletableFuture에 의존하므로 두 CompletableFuture를 하나로 조합하든
+     *          Async 버전의 메소드를 쓰든 최종 결과나 개괄적인 실행 시간에는 영향이 없다. 오히려 쓰레드 전환 오버헤드가 적게 발생하면서
+     *          효율성이 조금 더 좋은 thenCompose를 쓰는 것이 이 경우는 좋다.
+     *
+     *
+     *
+     *                      > 16.4.4 독립 CompletableFuture와 비독립 CompletableFuture 합치기
+     *
+     */
+    System.out.println("\n\nasync + sync ----------");
+    startTime = System.nanoTime();
+    System.out.println(new Shops().findPriceCombineBlockAndNoneBlock("myPhone27S"));
+    durationTime = ((System.nanoTime() - startTime) / 1_000_000);
+    System.out.println("Done in "+ durationTime + " ms");
+    }
 
     public static void doSomethingElse() {
         try {
