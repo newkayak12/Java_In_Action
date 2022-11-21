@@ -394,18 +394,89 @@ public class Section1 {
      *          Async 버전의 메소드를 쓰든 최종 결과나 개괄적인 실행 시간에는 영향이 없다. 오히려 쓰레드 전환 오버헤드가 적게 발생하면서
      *          효율성이 조금 더 좋은 thenCompose를 쓰는 것이 이 경우는 좋다.
      *
-     *
-     *
-     *                      > 16.4.4 독립 CompletableFuture와 비독립 CompletableFuture 합치기
-     *
      */
     System.out.println("\n\nasync + sync ----------");
     startTime = System.nanoTime();
     System.out.println(new Shops().findPriceCombineBlockAndNoneBlock("myPhone27S"));
     durationTime = ((System.nanoTime() - startTime) / 1_000_000);
     System.out.println("Done in "+ durationTime + " ms");
-    }
+    /**
+     *                      > 16.4.4 독립 CompletableFuture와 비독립 CompletableFuture 합치기
+     *
+     *          exam_16_2.Shops.findPriceCombineBlockAndNoneBlock()의 첫 번째 CompleteableFuture에 thenCompose 메소드를 실행한
+     *          다음에 실행 결과를 첫 번째 실행 결과를 입력으로 받는 두 번째 CompletableFuture을 전달했다. 실전에서는 독립적으로 실행된 Completable
+     *          Future의 결과를 합쳐야 하는 상황이 종종 발생한다. 물론 첫 번째 CompletableFuture의 동작 완료와 관계없이 두 번째 CompleteFuture
+     *          를 실행할 수 있어야 한다.
+     *
+     *          이런 상황에서는 thenCombine 메소드를 사용한다. thenCombine 메소드는 BiFunction을 두 번째 인수로 받는다. BiFunction은 두 개의
+     *          CompletableFuture의 결과를 어떻게 합칠지 정의한다. thenCompose와 마찬가지로 thenCombine 메소드에도 Aysnc 버전이 존재한다.
+     *          thenCombineAysnc 메소드에는 BiFunction이  정의하는 조합 동작이 쓰레드 풀로 제출되면서 별도의 태스크에 비동기적으로 수행된다.
+     *
+     *          예제에서는 한 온라인 상점이 EUR 가격 정보를 제공하는데, 고객에게는 항상 USD를 보여줘야한다. 우리는 주어진 상품의 가격을 상점에 요청하는
+     *          한편 원격 환율 교환 서비스를 이용해서 유로와 달러의 현재 환율을 비동기적으로 요청해야한다. 두 가지 데이터를 얻었다면 환율을 곱해서 결과를
+     *          합칠 수 있다. 이렇게 해서 두 CompletableFuture의 결과가 생성되고 BiFunction으로 합쳐진 다음에 세 번쨰 CompletableFuture를
+     *          얻을 수 있다.
+     *
+     *                  Future<Double> futurePriceInUSD = CompletableFuture.supplyAsync( () -> shop.getPrice(product))
+     *                                         .thenCombine( CompletableFuture.supplyAsync( () -> exchangeService.getRate(Money.EUR, Money.USD)),
+     *                                           (price, rate) -> price * rate ));
+     *
+     *
+     *          여기서 합치는 연산은 단순 곱연산이므로 별도의 태스트에서 수행해서 자원을 낭비할 필요가 없다. 따라서 thenCombineAsync 대신 thenCombine
+     *          메소드를 사용한다.
+     *
+     *
+     *
+     *                    > 16.4.5 Future의 리플렉션과 CompletableFuture의 리플렉션
+     *          위 예시와 전 예시는 자바 8 이전의 Future에 비해 CompletableFuture가 어떤 큰 이점을 제공하는지 명확히 보여준다. CompltableFuture
+     *          는 람다 표현식을 사용한다. 이미 살펴본것처럼 람다 덕분에 다양한 동기 태스크, 비동기 태스크를 황용해서 복잡한 연산 수행 방법을 효과적으로 쉽게
+     *          정의할 수 있는 선언형 API를 만들 수 있다. 자바 7로 구현하면서 실질적으로 CompletableFuture를 이용했을 때 얻을 수 있는 코드 가독성의
+     *          이점이 무엇인지 확인할 수 있다. 아래는 자바 코드이다.
+     *
+     *                  exam_16_2.Shops.findPriceWithExchangeRate()
+     *
+     *                  ExecutorService executor = Executors.newCachedThreadPool();
+     *                  final Future<Double> futureRate = executor.submit(new Callable<Double>() {
+     *                      public Double call() {
+     *                          return exchangeService.getRate(Money.EUR, Money.USD);
+     *                      }
+     *                  });
+     *
+     *                  Future<Double> futurePriceInUSD = executor.submit(new Callable<Double>() {
+     *                      public Double call() {
+     *                          double priceInEUR = shop.getPrice(product);
+     *                          return priceInEUR * future.Rate.get();
+     *                      }
+     *                  }
+     *
+     *           얼핏보기에는 별 다른 차이가 없어 보인다.
+     *
+     *
+     *
+     *                      > 16.4.6 타임아웃 효과적으로 사용하기
+     *           16.2.2에서 살펴본 바와 같이 Future의 계산 결과를 읽을 때는 무한정 기다리는 상황이 발생할 수 있으므로 블록을 하지 않는 것이 좋다.
+     *           자바 9에서는 CompletableFuture에서 제공하는 몇 가지 기능을 이ㅛㅇㅇ해 이런 문제를 해결할 수 있다. orTimeout 메소드는 지정된
+     *           시간이 지난 후에 CompletableFuture을 TimeoutException으로 완료하면서 또 다른 CompletableFuture를 반환할 수 있도록
+     *           내부적으로 ScheduledThreadExecutor를 활용한다. 이 메소드를 이용하면 계산 파이프라인을 연결하고 여기서 TimeoutException이
+     *           발생했을 때 사용자가 수비게 이해할 수 있는 메시지를 제공할 수 있다.
+     *
+     *                  exam_16_2.Shops.findPriceWithExchangeRateTimeout()
+     *
+     *           일시적으로 서비스를 이용할 수 없는 상황에서 꼭 서버에서 얻은 값이 아닌 미리 지정된 값을 사용할 수 있는 상황도 있다. 예를 들어
+     *           EUR -> USD가 1초 이내에 완료되지 않았을 때, 그렇다고 전체 계산을 Exception 처리하지 않는 상황이라면 미리 정의한 값으로 연산을 이어
+     *           나갈 수도 있다. 자바 9에서 completeOnTimeout 메소드로 이 기능을 수행할 수 있다.
+     *
+     *
+     *             exam_16_2.Shops. findPriceWithExchangeRateCompleteOnTimeout()
+     *
+     *
+     *
+     *                  >16.5 CompletableFuture의 종료에 대응하는 방법
+     *           이런 상황에서 문제가 하나 더 남아 있다. 얼마나 지연될지 모른다는 것이 문제이다. 서버 부하에서 네트워크 문제에 이르기까지 다양한 지연
+     *           요소가 있기 때문이다. 또한 질의당 얼마를 더 지불하느냐에 따라 우리 애플리케이션이 제공하는 서비스의 질이 달라질 수 있다.
+     */
 
+    }
     public static void doSomethingElse() {
         try {
             Thread.sleep(3000);

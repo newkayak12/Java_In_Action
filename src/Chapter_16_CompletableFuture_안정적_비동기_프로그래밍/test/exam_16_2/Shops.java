@@ -1,13 +1,12 @@
 package Chapter_16_CompletableFuture_안정적_비동기_프로그래밍.test.exam_16_2;
 
 import Chapter_16_CompletableFuture_안정적_비동기_프로그래밍.test.exam_16_4.Discount;
+import Chapter_16_CompletableFuture_안정적_비동기_프로그래밍.test.exam_16_4.ExchangeService;
 import Chapter_16_CompletableFuture_안정적_비동기_프로그래밍.test.exam_16_4.Quote;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 public class Shops {
@@ -50,5 +49,62 @@ public class Shops {
 
         return priceFutures.stream().map(CompletableFuture::join).collect(Collectors.toList());
     }
- 
+
+    public List<String> findPriceWithExchangeRate(String product){
+        List<CompletableFuture<Double>> priceFuture =  shops.stream().map(
+                shop -> CompletableFuture.supplyAsync(() -> shop.getPrice(product))
+                        .thenCombine(CompletableFuture.supplyAsync(() -> ExchangeService.getRate(ExchangeService.Money.EUR, ExchangeService.Money.USD)),
+                        (price,rate) -> price * rate
+                ))
+                .collect(Collectors.toList());
+
+        return priceFuture.stream().map(result -> {
+            try {
+                return result.get().toString();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }).collect(Collectors.toList());
+
+    }
+
+    public List<String> findPriceWithExchangeRateTimeout(String product){
+        List<CompletableFuture<Double>> priceFuture =  shops.stream().map(
+                        shop -> CompletableFuture.supplyAsync(() -> shop.getPrice(product))
+                                .thenCombine(CompletableFuture.supplyAsync(() -> ExchangeService.getRate(ExchangeService.Money.EUR, ExchangeService.Money.USD)),
+                                        (price,rate) -> price * rate
+                                ).orTimeout(3, TimeUnit.SECONDS))
+                .collect(Collectors.toList());
+
+        return priceFuture.stream().map(result -> {
+            try {
+                return result.get().toString();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }).collect(Collectors.toList());
+    }
+
+    public List<String> findPriceWithExchangeRateCompleteOnTimeout(String product){
+        List<CompletableFuture<Double>> priceFuture =  shops.stream().map(
+                        shop -> CompletableFuture.supplyAsync(() -> shop.getPrice(product))
+                                .thenCombine(CompletableFuture.supplyAsync(() -> ExchangeService.getRate(ExchangeService.Money.EUR, ExchangeService.Money.USD)),
+                                        (price,rate) -> price * rate
+                                ).completeOnTimeout(1.23, 1, TimeUnit.SECONDS))
+                .collect(Collectors.toList());
+
+        return priceFuture.stream().map(result -> {
+            try {
+                return result.get().toString();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }).collect(Collectors.toList());
+    }
 }
