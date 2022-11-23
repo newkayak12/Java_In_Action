@@ -43,7 +43,8 @@ public class Shop {
 
 
     private double calculatorPrice(String product) {
-        delay();
+//        delay();
+        delayRandom();
         Random random = new Random();
         return random.nextDouble() * product.charAt(0) + product.charAt(1);
     }
@@ -51,6 +52,15 @@ public class Shop {
     public static void delay() {
         try {
             Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+    private void delayRandom(){
+        int delay = 500 + new Random().nextInt(2000);
+        try {
+            Thread.sleep(delay);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

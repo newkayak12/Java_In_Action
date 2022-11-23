@@ -3,6 +3,8 @@ package Chapter_16_CompletableFuture_안정적_비동기_프로그래밍;
 import Chapter_16_CompletableFuture_안정적_비동기_프로그래밍.test.exam_16_2.Shop;
 import Chapter_16_CompletableFuture_안정적_비동기_프로그래밍.test.exam_16_2.Shops;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.*;
 
 public class Section1 {
@@ -474,8 +476,62 @@ public class Section1 {
      *                  >16.5 CompletableFuture의 종료에 대응하는 방법
      *           이런 상황에서 문제가 하나 더 남아 있다. 얼마나 지연될지 모른다는 것이 문제이다. 서버 부하에서 네트워크 문제에 이르기까지 다양한 지연
      *           요소가 있기 때문이다. 또한 질의당 얼마를 더 지불하느냐에 따라 우리 애플리케이션이 제공하는 서비스의 질이 달라질 수 있다.
+     *
+     *           여러 상점에 정볼르 제공했을 때 몇몇 상점은 다른 상점보다 먼저 결과를 제공할 가능성이 크다. 0.5~2.5 사이의 임의 지연으로 이를 시뮬레이션
+     *           해보자
+     *
+     *                      exam_16_2.Shops.findPricesStream()
+     *
+     *
      */
-
+    Shops shops = new Shops();
+    shops.findPricesStream("myPhone").map(f -> f.thenAccept(System.out::println));
+    /**
+     *          thenCompose, thenCombine과 마찬가지로 thenAccept에도 thenAcceptAsync가 있다. thenAcceptAsync는 CompletableFuture
+     *          가 완료된 쓰레드가 아니라 새로운 쓰레드를 이용해서 Consumer를 실행한다. 불필요한 콘텍스트 변경은 피하는 동시에 CompletableFuture가
+     *          완료되는 즉시 응답하는 것이 좋으므로 thenAcceptAsync를 사용하지 않았다.
+     *
+     *          thenAccept는 CompletableFuture가 생성한 결과를 어떻게 소비할지 미리 지정했으므로 CompletableFuture<Void>를 반환한다.
+     *          따라서 네 번째 map은 <CompletableFuture<Void>>를 반환한다. 이제 <CompletableFuture<Void>>가 동작을 끝낼 떄까지 딱히 할 수
+     *          있는 일이 없다. 또한 느린 상점에서 응답을 받아서 반환된 가격을 출력할 기회를 제공하고 싶다고 가정하자 그러기 위해서는 아래 코드에서와 같이
+     *          CompletableFuture<Void>를 배열로 추가하고 실행 결과를 기다려야 한다.
+     *
+     */
+    CompletableFuture[] futures = shops.findPricesStream("myPhone").map(f -> f.thenAccept(System.out::println))
+            .toArray(size -> new CompletableFuture[size]);
+    CompletableFuture.allOf(futures).join();
+    /**
+     *          팩토리 메소드 allOf는 CompletableFuture 배열을 입력으로 받아 CompletableFuture<Void>를 반환한다. 전달된 모든 CompletableFuture
+     *          가 완료되어야 CompletableFuture<Void>가 완료된다. 따라서 allOf 메소드가 반환하는 CompletableFuture에 join을 호출하면
+     *          원래 스트림의 모든 CompletableFuture의 실행 완료를 기다릴 수 있다. 이를 이용해서 최저가격 검색 애플리케이션은 '모든 상점이 결과를
+     *          반환했거나 타임아웃되었음' 같은 메시지를 사용자에게 보여줌으로써 사용자는 추가로 가격 정보를 기다리지 않아도 된다는 사실을 보여줄 수 있다.
+     *
+     *          반면 배열의 CompletableFuture 중 하나의 작업이 끝나길 기다리는 상황도 있을 수 있다. 예를 들어 같은 서버로 동시에 접근 했을 때
+     *          둘 중 하나의 결과만 있으면 되는 경우이다. 이때 팩토리 메소드 anyOf를 사용한다. anyOf 메소드는 CompletableFuture 배열을 입력으로
+     *          받아서 CompletableFuture<Object>를 반환한다. CompletableFuture<Object>는 처음으로 완료한 CompletableFuture의 값으로
+     *          동작을 완료한다.
+     *
+     *                      > 16.5.2 응용
+     *          randomDelay로 임의의 지연으로 원격 서비스를 흉내낼 것이다. 아래의 코드를 실행시키면 지정된 시간에 나타나지 않을 뿐만 아니라 상점 가격
+     *          정보가 들어오는 대로 결과가 출력된다.
+     */
+    System.out.println("\n\n 응용----------------");
+    Long start2 = System.nanoTime();
+    List<String> result = new ArrayList<>();
+    CompletableFuture[] futures2 = shops.findPricesStream("myPhone275").peek(i-> {
+                try {
+                    result.add(i.get());
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                } catch (ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            }).map(f -> f.thenAccept(
+            s -> System.out.println(s + "(done in "+((System.nanoTime() - start2) / 1_000_00)+" ms)")))
+            .toArray(size -> new CompletableFuture[size]);
+    CompletableFuture.allOf(futures2).join();
+    System.out.println(result);
+    System.out.println("All shops now responded in "+ ((System.nanoTime() - start2) / 1_000_000)+" ms");
     }
     public static void doSomethingElse() {
         try {
