@@ -1,5 +1,11 @@
 package Chapter_17_리액티브_프로그래밍;
 
+import Chapter_17_리액티브_프로그래밍.test_17_2_2.Publisher;
+import Chapter_17_리액티브_프로그래밍.test_17_2_2.TempSubscriber;
+import io.reactivex.rxjava3.core.Observable;
+
+import java.util.concurrent.TimeUnit;
+
 public class Section1 {
     public static void main(String[] args) {
     /**
@@ -210,7 +216,125 @@ public class Section1 {
      * 다양한 리액티브 라이브러리를 이용해 개발된 리액티브 애플리케이션이 서로 협동하고 소통할 수 있는 공용어를 제시한다. 더욱이 이들 리액티브 라이브러리는 보통
      * 추가적인 기능을 제공한다. (java.util.concurrency.Flow 인터페이스에 정의 최소 하위 집합을 넘어  리액티브 스트림을 변형하고 합치는 기능과 관련된 클래스와 메소드 등).
      *
+     * 예시로 온도를 보고하는 간단한 프로그램을 확인해보자. 목표는 아래와 같다.
+     *      1. TempInfo. 원격 온도계 흉내를 낸다. (0~99 사이의 화씨 온도를 임의로 만들어 연속적으로 보고)
+     *      2. TempSubscriber 레포트를 관찰하면서 각 도시에 설치된 센서에서 보고한 온도 스트림을 출력한다.
      *
+     *                  Chapter_17_리액티브_프로그래밍/test_17_2_2/TempInfo.java
+     *
+     * 간단한 도메인 모델을 정의한 다음에는 아래 예제처럼 Subscriber가 요청할 때마다 해당 도시의 온도를 전송하도록 Subscription을 구현한다.
+     *
+     *                  Chapter_17_리액티브_프로그래밍/test_17_2_2/TempSubscription.java
+     *
+     * 이번에는 새 요소를 얻을 때마다 Subscribption이 전달한 온도를 출력하고 새 레포트를 요청하는 Subscriber 클래스를 아래와 같이 구현한다.
+     *
+     *                  Chapter_17_리액티브_프로그래밍/test_17_2_2/TempSubscriber.java
+     *
+     * 아래 예제는 리액티브 애플리케이션이 동작하도록 Publisher를 만들고 TempSubScriber를 이용해서 Publisher에 구독하도록 한 코드이다.
      */
+//        Publisher.getTemperatures("New York").subscribe(new TempSubscriber());
+    /**
+     *
+     * 여기서 getTemperatures 메소드는 Subscriber를 인수로 받아 Subscriber의 onSubscribe 메소드를 호출 (새 TempSubscription 인스턴스를 인수로)
+     * 한다. 람다의 시그니처가 Publisher의 함수형 인터페이스의 유일한 메소드와 같은 시그니처를 가지므로 자바 컴파일러는 자동으로 람다를 Publisher로
+     * 바꿀 수 있다.
+     *
+     * 그러나 이 코드에는 문제가 있다. TempInfo 팩토리 메소드에서 임의로 에러를 발생시키는데 만약 임의로 에러를 발생시키는 코드를 없앤다면 스택오버플로가
+     * 발생할 때까지 반복된다.
+     *
+     * 이 문제를 어떻게 해결할까? Executor를 TempSubscription으로 추가한다음 다른 쓰레드에서 TempSubscriber로 세 요소를 전달하는 방법이 있다.
+     * 그러려면 TempSubscription을 바꿔야한다.
+     *          Chapter_17_리액티브_프로그래밍/test_17_2_2/TempSubscription.request()
+     *
+     *
+     *
+     *
+     *                      > 17.2.3 Processor로 데이터 변환하기
+     *
+     * Processor는 Subscriber이며 동시에 Publisher이다. 사실 Processor의 목적은 Publisher를 구독한 다음 수신한 데이터를 가공해서 다시
+     * 제공하는 것이다. 화씨를 섭씨로 변환하는 예제를 구현해보자.
+     *
+     *                  Chapter_17_리액티브_프로그래밍/test_17_2_2/TempProcessor.java
+     */
+    System.out.println("\n------Processor------");
+    Publisher.getCelsiusTemperatures("New York").subscribe(new TempSubscriber());
+    /**
+     *                      > 17.2.4 자바는 왜 Flow API 구현을 제공하지 않는가?
+     * 자바 9의 Flow는 조금 이상하다. 자바 라이브러리는 보통 인터페이스와 구현을 제공하는 반면 플로 API는 구현을 제공하지 않으므로 우리가 직접 인터페이스를 구현했다.
+     * 일례로 리스트 API를 보면 ArrayList<T>를 포함한 다양한 클래스가 List<T> 인터페이스를 구현한다. 조금더 엄밀하게 보면 ArrayList<T> 클래스는
+     * List<T> 인터페이스를 구현하는 추상 클래스 AbstractList<T>를 상속받는다. 반면 자바 9에서는 Publisher<T> 인터페이스만 선언하고 구현을 제공하지
+     * 않으므로 직접 인터페이스를 구현해야 한다. 인터페이스가 프로그래밍 구조를 만드는데 도움이 될 수 있지만 프로그램을 더 빨리 구현하는 데 도움이 되지 않는다.
+     *
+     * API를 만들 당시 RxJava 등 다양한 리액티브 스트림의 자바 코드 라이브러리가 이미 존재했기 때문이다. 원래 발행-구독 패러다임에 기반해 리액티브 프로그래밍을
+     * 구현했지만, 이들 라이브러리는 독립적으로 개발되었고 서로 다른 이름 규칙과 API를 사용했다. 자바 9의 표준화 과정에서 기존처럼 자신만의 방법이 아닌 이들 라이브러리는
+     * 공식적으로 java.util.concurrent.Flow의 인터페이스를 기반으로 리액티브 개념을 구현하도록 진화했다 이 표준화 작업 때문에 다양한 라이브러리가
+     * 쉽게 협력할 수 있게 되었다.
+     *
+     *
+     *                      > 17.3 리액티브 라이브러리 RxJava 사용하기
+     * RxJava는 자바로 리액티브 애플리케이션을 구현하는 데 사용하는 라이브러리이다. RxJava는 java.util.concurrent.Flow를 지원하도록 개발되었다.
+     * 자바에서 외부 라이브러리를 사용할 때 import에서 그 사실이 두드러진다.
+     *
+     *      import java.lang.concurrent.Flow.*;
+     *      import io.reactivex.Observable;
+     *
+     * Publisher의 구현인 Observable 같은 클래스를 이용하려면 위와 같은 import를 사용해야한다.
+     * 이 시점에서 중요한 아키텍쳐 속성을 살펴보면 좋은 시스템 아키텍쳐 스타일을 유지하려면 시스템에서 오직 일부에 사용된 개념의 세부 사항을 전체 시스템에서
+     * 볼 수 있게 만들지 않아야 한다. 따라서 Observable의 추가 구조가 필요한 상황에서만 Observable을 사용하고 그렇지 않으면 Publisher의 인터페이스를
+     * 사용하는 것이 좋다. 사실 List도 이 원칙이 적용되어 있다. 예를 들어 전달하는 값이 ArrayList라는 사실을 이미 알고 있지만 이 값의 파라미터 형식을
+     * List로 설정함으로 구현 세부 사항을 밖으로 노출하지 않을 수 있다. 나중에 ArrayList를 LinkedList로 바꾸더라도 기존 코드를 크게 바꿀 필요가
+     * 없게 된다. 마찬가지로 RxJava는 Flow.Publisher를 구현하는 두 클래스를 제공한다.
+     *
+     * RxJava 문서를 읽다보면 자바 9에서 리액티브 당김 기반 역압력 기능(request)이 있는 Flow를 포함하는 io.reactivex.Flowable 클래스를 확인할
+     * 수 있다. 역압력은 Publisher가 너무 빠른 속도로 데이터를 발행하면서 Subscriber가 이를 감당할 수 없는 상황에 이르는 것을 방지하는 기능이다
+     * 나머지 클래스는 역압력을 지원하지 않는 기존 버전의 RxJava에서 제공하던 Publisher.io.reactivex.Observable이다. 이 클래스는 단순한
+     * 프로그램, 마우스 움직임 같은 사용자 인터페이스 이벤트에 더 적합하다. 이들 이벤트 스트림에는 역압력을 적용하기 어렵기 때문이다.
+     * 이런 이유로 RxJava는 이벤트 스트림을 두 가지 구현 클래스로 제공한다.
+     *
+     *      {
+     *          RxJava는 천 개 이하의 요소를 가진 스트림이나 마우스 움직임, 터치 이벤트 등 역압력을 적용하기 어려운 GUI 이벤트 그리고 자주 발생하지
+     *          않는 종류의 이벤트에 역압력을 적용하지 말 것을 권장한다.
+     *      }
+     *
+     * Flowable을 자세히 살펴보지는 않지만 대신 역압력을 사용하지 않는 상태에서 Observable 인터페이스를 사용하는 방법을 살펴볼 것이다. 모든 구독자는
+     * 구독 객체의 request(Long.MAX_VALUE) 메소드를 이요해서 역압력 기능을 끌 수도 있다. 물론 Subscriber가 정해진 시간 안에 수신한 이벤트를
+     * 모두 처리할 수 있다고 확신하는 상황이 아니고서야 역압력을 굳이 해제하지 않는 것이 좋다.
+     *
+     *
+     *                  > 17.3.1 Observable 만들고 사용하기
+     * Observable, Flowable은 다양한 종류의 리액티브 스트림을 편리하게 만들수 있도록 여러 팩토리 메소드를 제공한다. (Observable과 Flowable은
+     * Publisher를 구현하므로 팩토리 메소드는 리액티브 스트림을 만든다.)
+     */
+    Observable<String> strings = Observable.just("first", "second");
+    strings.subscribe(System.out::println);
+    /**
+     * 여기서 just() 팩토리 메소드는 한 개 이상의 요소를 이용해 이를 방출하는 Observable로 변환한다. Observable의 구독자는 onNext("first"),
+     * onNext("second"), onComplete()의 순서로 메시지를 받는다.
+     *
+     * 사용자와 실시간으로 상호작용하면서 지정된 속도로 이벤트를 방출하는 상황에서 유용하게 사용할 수 있는 다른 Observable 팩토리 메소드도 있다.
+     */
+    Observable<Long> onPerSec = Observable.interval(1, TimeUnit.SECONDS);
+    /**
+     * 팩토리 메소드 interval은 onPerSec이라는 변수로 Observable을 반환해 할당한다. 이 Observable은 0에서 시작해 1초 간격으로 Long 형식의
+     * 값을 무한으로 증가시키며 값을 방출한다.
+     *
+     * Rxjava에서는 Observable이 Flow API의 Publisher 역할을 하며 Observer는 Flow의 Subscriber 인터페이스 역할을 한다. RxJava Observer
+     * 인터페이스는 자바 9의 Subscriber와 같은 메소드를 정의하며 onSubscribe 메소드가 Subscription 대신 Disposable 인수를 갖는 다는 점만 다르다.
+     * 이전에 설명한 바와 같이 Observable은 역압력을 지원하지 않으므로 Subscription의 request 메소드를 포함하지 않는다.
+     *
+     * 하지만 RxJava의 API는 자바 9 네이티브 Flow API보다 유연하다., 예를 들어 다른 세 메소드는 생략하고 onNext 메소드의 시그니처에 해당하는
+     * 람다 표현식을 전달해 Observable 을 구독할 수 있다. 즉 이벤트를 수신하는 Consumer의 onNext 메소드만 구현하고 나머지 완료, 에러 처리 메소드는
+     * 아무것도 하지 않는 기본 동작을 가진 Observer를 만들어 Observable에 가입할 수 있다.
+     */
+    System.out.println("\n-------RxJava-------");
+//    onPerSec.subscribe(i -> System.out.println(TempInfo.fetch("NEWYORK")));
+    /**
+     * 위 코드를 실행하면 아무 것도 출력되지 않는데 이는 매 초마다 정보를 발행하는 Observable이 RxJava의 연산 쓰레드 풀 즉 데몬 쓰레드에서 실행되기
+     * 떄문이다. main은 실행하자마자 따로 실행할 코드가 없으면 종료되고 프로그램이 종료되었으므로 어떤 결과를 출력하기도 전에 데몬쓰레드도 종료되면서 이런
+     * 현상이 발생한다.
+     *
+     * 물론 sleep을 주는 방법도 잇지만 현재 쓰레드에서 콜백을 호출하는 blockingSubscribe로 문제를 해결할 수 있다.
+     */
+//    onPerSec.blockingSubscribe(i -> System.out.println(TempInfo.fetch("SEOUL")));
     }
 }
