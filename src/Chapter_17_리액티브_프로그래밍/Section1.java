@@ -1,7 +1,6 @@
 package Chapter_17_리액티브_프로그래밍;
 
-import Chapter_17_리액티브_프로그래밍.test_17_2_2.Publisher;
-import Chapter_17_리액티브_프로그래밍.test_17_2_2.TempSubscriber;
+import Chapter_17_리액티브_프로그래밍.test_17_2_2.*;
 import io.reactivex.rxjava3.core.Observable;
 
 import java.util.concurrent.TimeUnit;
@@ -327,14 +326,47 @@ public class Section1 {
      * 아무것도 하지 않는 기본 동작을 가진 Observer를 만들어 Observable에 가입할 수 있다.
      */
     System.out.println("\n-------RxJava-------");
-//    onPerSec.subscribe(i -> System.out.println(TempInfo.fetch("NEWYORK")));
+    onPerSec.subscribe(i -> System.out.println(TempInfo.fetch("NEWYORK")));
     /**
      * 위 코드를 실행하면 아무 것도 출력되지 않는데 이는 매 초마다 정보를 발행하는 Observable이 RxJava의 연산 쓰레드 풀 즉 데몬 쓰레드에서 실행되기
      * 떄문이다. main은 실행하자마자 따로 실행할 코드가 없으면 종료되고 프로그램이 종료되었으므로 어떤 결과를 출력하기도 전에 데몬쓰레드도 종료되면서 이런
      * 현상이 발생한다.
      *
-     * 물론 sleep을 주는 방법도 잇지만 현재 쓰레드에서 콜백을 호출하는 blockingSubscribe로 문제를 해결할 수 있다.
+     * 물론 sleep을 주는 방법도 있지만 현재 쓰레드에서 콜백을 호출하는 blockingSubscribe로 문제를 해결할 수 있다.
      */
-//    onPerSec.blockingSubscribe(i -> System.out.println(TempInfo.fetch("SEOUL")));
+    onPerSec.blockingSubscribe(i -> System.out.println(TempInfo.fetch("SEOUL")));
+    /**
+     *
+     * 결국 에러가 나는데 이는 기능이 임의로 실패하기 때문이다. onError에서 에러 관리 기능이 없기 때문에 처리되지 않은 예외를 직접 보인다.
+     * 이제 더 나아가 온도를 직접 출력하지 않고 사용자에게 팩토리 메소드를 제공해 매 초마다 온도를 방출하는 Observable을 반환할 것이다.
+     *
+     *
+     *          Chapter_17_리액티브_프로그래밍/test_17_2_2/Publisher.java.Observable<TempInfo> getTemperature
+     *
+     * 필요한 이벤트를 전송하는 ObservableEmitter를 소비하는 함수로 Observable을 만들어 반환했다. RxJava의 ObservableEmitter 인터페이스는
+     * RxJava의 기본 Emitter(onSubscribe 메소드가 빠진 Observer와 같음)를 상속한다.
+     *
+     *                             public interface Emitter<T> {
+     *                                 void onNext(T t);
+     *                                 void onError(Throwable t);
+     *                                 void onComplete();
+     *                             }
+     *
+     * Emitter는 새 Disposable을 설정하는 메소드와 시퀀스가 이미 다운스트림을 폐기했는지 확인하는 메소드 등을 제공한다.
+     *
+     * 내부적으로 매 초마다 증가하는 무한의 long을 발생하는 onePerSec과 같은 Observable을 구독했다. 우선 구독 함수 내에서는 ObservableEmitter
+     * 인터페이스(subscribe 메소드의 인수로 넘겨짐)에서 제공하는 isDisposed 메소드를 이용해 소비된 Observer가 이미 폐기됐는지 확인한다.
+     * 온도를 이미 다섯번 출력했으면 스틀미을 종료하면서 Observer를 완료한다. 그렇지 않으면 try/catch 블록 안에서 요청된 도시 최근 온도를 Observer로
+     * 보낸다. 온도를 얻는 과정에서 에러가 발생하면 에러를 Observer로 전달한다.
+     *
+     *
+     *                  Chapter_17_리액티브_프로그래밍/test_17_2_2/RxTemperature.java
+     *
+     * Observer는 TempSubscriber와 비슷하지만 단순하다. RxJava의 Observable은 역압력을 지원하지 않으므로 전달된 요소를 처리한 다음 추가 요소를
+     * 요청하는 request() 메소드가 필요 없다.
+     */
+    System.out.println("\n\n------RxJava Observable-------");
+    Observable<TempInfo> observable = RxTemperature.getTemperature("NewYork");
+    observable.blockingSubscribe(new TempObserver());
     }
 }

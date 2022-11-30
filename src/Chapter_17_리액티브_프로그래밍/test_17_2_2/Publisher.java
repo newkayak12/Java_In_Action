@@ -13,4 +13,5 @@ public class Publisher {
             processor.onSubscribe( new TempSubscription( processor, town ));
         };
     }
+
 }
